@@ -1,14 +1,18 @@
 from fastapi import FastAPI
 
+from app.api.users import router as users_router
+
+
 app = FastAPI(
     title="JobForge API",
-    description="AI-powered career intelligence platform",
-    version="0.1.0",
 )
 
 
+app.include_router(users_router)
+
+
 @app.get("/health")
-async def health_check():
+def health():
     return {
         "status": "ok",
         "service": "jobforge-api",
