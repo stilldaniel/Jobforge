@@ -14,6 +14,8 @@ class JobCreate(BaseModel):
     application_url: str
     source: str
     posted_at: datetime | None = None
+    required_skills: str | None = None
+    required_experience: int | None = None
 
 
 class JobResponse(BaseModel):

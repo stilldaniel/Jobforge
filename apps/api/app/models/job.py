@@ -29,6 +29,16 @@ class Job(Base):
         nullable=True,
     )
 
+    required_skills: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    required_experience: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+
     location: Mapped[str | None] = mapped_column(
         String(255),
         nullable=True,
