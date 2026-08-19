@@ -1,34 +1,39 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
 
-class User(Base):
-    __tablename__ = "users"
+class JobMatch(Base):
+    __tablename__ = "job_matches"
 
     id: Mapped[int] = mapped_column(
         primary_key=True,
         autoincrement=True,
     )
 
-    email: Mapped[str] = mapped_column(
-        String(255),
-        unique=True,
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
-    full_name: Mapped[str | None] = mapped_column(
-        String(255),
-        nullable=True,
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("jobs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
-    timezone: Mapped[str] = mapped_column(
-        String(100),
+    score: Mapped[int] = mapped_column(
+        Integer,
         nullable=False,
+    )
+
+    match_reasons: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -44,15 +49,12 @@ class User(Base):
         onupdate=datetime.utcnow,
     )
 
-    career_profile = relationship(
-        "CareerProfile",
-        back_populates="user",
-        uselist=False,
-        cascade="all, delete-orphan",
+    user = relationship(
+        "User",
+        back_populates="job_matches",
     )
 
-    job_matches = relationship(
-        "JobMatch",
-        back_populates="user",
-        cascade="all, delete-orphan",
+    job = relationship(
+        "Job",
+        back_populates="job_matches",
     )

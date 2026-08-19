@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, pool
 
 from app.db.database import Base
-from app.models import User
+from app.models import CareerProfile, User
 
 # Load environment variables from .env
 load_dotenv()
