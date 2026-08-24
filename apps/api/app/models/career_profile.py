@@ -26,6 +26,11 @@ class CareerProfile(Base):
         nullable=True,
     )
 
+    skills: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
     years_of_experience: Mapped[int] = mapped_column(
         Integer,
         nullable=False,

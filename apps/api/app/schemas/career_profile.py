@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict
 
 class CareerProfileCreate(BaseModel):
     professional_title: str | None = None
+    skills: str | None = None
     years_of_experience: int = 0
     summary: str | None = None
     preferred_work_type: str | None = None
@@ -19,6 +20,7 @@ class CareerProfileResponse(BaseModel):
     professional_title: str | None
     years_of_experience: int
     summary: str | None
+    skills: str | None
     preferred_work_type: str | None
     preferred_location: str | None
     minimum_salary: int | None

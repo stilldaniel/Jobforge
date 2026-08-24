@@ -45,6 +45,7 @@ def create_career_profile(
     profile = CareerProfile(
         user_id=user_id,
         professional_title=profile_data.professional_title,
+        skills=profile_data.skills,
         years_of_experience=profile_data.years_of_experience,
         summary=profile_data.summary,
         preferred_work_type=profile_data.preferred_work_type,
@@ -99,6 +100,7 @@ def update_career_profile(
         )
 
     profile.professional_title = profile_data.professional_title
+    profile.skills = profile_data.skills
     profile.years_of_experience = profile_data.years_of_experience
     profile.summary = profile_data.summary
     profile.preferred_work_type = profile_data.preferred_work_type
