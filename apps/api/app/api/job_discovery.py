@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.job_sources.mock import MockJobSource
 from app.services.job_ingestion import ingest_jobs
+from app.services.job_monitor import monitor_jobs
 
 
 router = APIRouter(
@@ -30,3 +31,12 @@ def run_job_discovery(
         "jobs": created_jobs,
         "updated_jobs": updated_jobs,
     }
+
+
+@router.post("/monitor")
+def run_job_monitor(
+    db: Session = Depends(get_db),
+):
+    return monitor_jobs(
+        db=db,
+    )

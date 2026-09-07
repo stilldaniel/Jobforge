@@ -70,7 +70,5 @@ def create_notification_for_match(
     )
 
     db.add(notification)
-    db.commit()
-    db.refresh(notification)
 
     return notification

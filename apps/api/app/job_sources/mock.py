@@ -201,4 +201,29 @@ class MockJobSource(JobSource):
                 source="mock",
                 posted_at=datetime.now(timezone.utc),
             ),
+
+            # --------------------------------------------------
+            # 9. NEW JOB — REMOTE — WORLDWIDE
+            # Expected: New job → match → notification
+            # --------------------------------------------------
+            DiscoveredJob(
+                title="Senior React Engineer",
+                company="NextGen Systems",
+                description=(
+                    "We are looking for a senior React engineer "
+                    "with 4+ years of experience building modern "
+                    "web applications. Strong experience with React, "
+                    "TypeScript, Next.js, JavaScript and Git is required."
+                ),
+                location="Remote",
+                remote_eligibility="Worldwide",
+                work_type="remote",
+                salary_min=3000,
+                salary_max=5000,
+                application_url=(
+                    "https://example.com/jobs/senior-react-engineer"
+                ),
+                source="mock",
+                posted_at=datetime.now(timezone.utc),
+            ),
         ]
