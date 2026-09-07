@@ -52,6 +52,7 @@ def create_career_profile(
         preferred_location=profile_data.preferred_location,
         minimum_salary=profile_data.minimum_salary,
         maximum_salary=profile_data.maximum_salary,
+        candidate_location=profile_data.candidate_location,
     )
 
     db.add(profile)
@@ -103,6 +104,7 @@ def update_career_profile(
     profile.skills = profile_data.skills
     profile.years_of_experience = profile_data.years_of_experience
     profile.summary = profile_data.summary
+    profile.candidate_location = profile_data.candidate_location
     profile.preferred_work_type = profile_data.preferred_work_type
     profile.preferred_location = profile_data.preferred_location
     profile.minimum_salary = profile_data.minimum_salary

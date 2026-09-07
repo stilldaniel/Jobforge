@@ -15,6 +15,7 @@ class DiscoveredJob:
     application_url: str
     source: str
     posted_at: datetime | None
+    remote_eligibility: str | None = None
 
 
 class JobSource(ABC):

@@ -42,6 +42,11 @@ class CareerProfile(Base):
         nullable=True,
     )
 
+    candidate_location: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     preferred_work_type: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,

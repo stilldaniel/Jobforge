@@ -44,6 +44,11 @@ class Job(Base):
         nullable=True,
     )
 
+    remote_eligibility: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
     work_type: Mapped[str | None] = mapped_column(
         String(50),
         nullable=True,

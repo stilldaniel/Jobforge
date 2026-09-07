@@ -49,12 +49,30 @@ class JobMatch(Base):
         onupdate=datetime.utcnow,
     )
 
+    # --------------------------------------------------
+    # USER RELATIONSHIP
+    # --------------------------------------------------
+
     user = relationship(
         "User",
         back_populates="job_matches",
     )
 
+    # --------------------------------------------------
+    # JOB RELATIONSHIP
+    # --------------------------------------------------
+
     job = relationship(
         "Job",
         back_populates="job_matches",
+    )
+
+    # --------------------------------------------------
+    # NOTIFICATION RELATIONSHIP
+    # --------------------------------------------------
+
+    notifications = relationship(
+        "Notification",
+        back_populates="job_match",
+        cascade="all, delete-orphan",
     )

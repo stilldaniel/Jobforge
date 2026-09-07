@@ -2,9 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
-from app.schemas.job_match import JobMatchResponse
-from app.services.match_jobs import generate_job_matches
+from app.models.job import Job
 from app.models.job_match import JobMatch
+from app.schemas.job_match import MatchedJobResponse
+from app.services.match_jobs import generate_job_matches
 
 
 router = APIRouter(
@@ -13,21 +14,57 @@ router = APIRouter(
 )
 
 
+def serialize_match(match: JobMatch) -> dict:
+    job = match.job
+
+    return {
+        "id": match.id,
+        "user_id": match.user_id,
+        "job_id": match.job_id,
+        "score": match.score,
+        "match_reasons": match.match_reasons,
+
+        # Job information
+        "title": job.title,
+        "company": job.company,
+        "description": job.description,
+        "required_skills": job.required_skills,
+        "required_experience": job.required_experience,
+        "location": job.location,
+        "remote_eligibility": job.remote_eligibility,
+        "work_type": job.work_type,
+        "salary_min": job.salary_min,
+        "salary_max": job.salary_max,
+        "application_url": job.application_url,
+
+        "created_at": match.created_at,
+        "updated_at": match.updated_at,
+    }
+
+
 @router.post(
     "/{user_id}/generate",
-    response_model=list[JobMatchResponse],
+    response_model=list[MatchedJobResponse],
 )
 def generate_matches(
     user_id: int,
     db: Session = Depends(get_db),
 ):
     try:
-        matches = generate_job_matches(
+        generate_job_matches(
             user_id=user_id,
             db=db,
         )
 
-        return matches
+        matches = (
+            db.query(JobMatch)
+            .join(Job, Job.id == JobMatch.job_id)
+            .filter(JobMatch.user_id == user_id)
+            .order_by(JobMatch.score.desc())
+            .all()
+        )
+
+        return [serialize_match(match) for match in matches]
 
     except ValueError as error:
         raise HTTPException(
@@ -38,7 +75,7 @@ def generate_matches(
 
 @router.get(
     "/{user_id}",
-    response_model=list[JobMatchResponse],
+    response_model=list[MatchedJobResponse],
 )
 def get_user_matches(
     user_id: int,
@@ -46,6 +83,7 @@ def get_user_matches(
 ):
     matches = (
         db.query(JobMatch)
+        .join(Job, Job.id == JobMatch.job_id)
         .filter(JobMatch.user_id == user_id)
         .order_by(JobMatch.score.desc())
         .all()
@@ -57,4 +95,4 @@ def get_user_matches(
             detail="No job matches found for this user",
         )
 
-    return matches
+    return [serialize_match(match) for match in matches]

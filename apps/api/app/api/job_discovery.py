@@ -18,13 +18,15 @@ def run_job_discovery(
 ):
     source = MockJobSource()
 
-    jobs = ingest_jobs(
+    created_jobs, updated_jobs = ingest_jobs(
         db=db,
         source=source,
     )
 
     return {
         "message": "Job discovery completed",
-        "jobs_found": len(jobs),
-        "jobs": jobs,
+        "jobs_found": len(created_jobs),
+        "jobs_updated": len(updated_jobs),
+        "jobs": created_jobs,
+        "updated_jobs": updated_jobs,
     }
