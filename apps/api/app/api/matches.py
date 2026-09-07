@@ -96,3 +96,59 @@ def get_user_matches(
         )
 
     return [serialize_match(match) for match in matches]
+
+@router.post(
+    "/{user_id}/notifications",
+)
+def create_match_notifications(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    matches = (
+        db.query(JobMatch)
+        .filter(
+            JobMatch.user_id == user_id
+        )
+        .all()
+    )
+
+    if not matches:
+        raise HTTPException(
+            status_code=404,
+            detail="No job matches found for this user",
+        )
+
+    from app.services.notification_service import (
+        create_notification_for_match,
+    )
+
+    created_notifications = []
+
+    for match in matches:
+        notification = create_notification_for_match(
+            db=db,
+            match=match,
+        )
+
+        if notification:
+            created_notifications.append(
+                notification
+            )
+
+    return {
+        "message": "Notifications created",
+        "notifications_created": len(
+            created_notifications
+        ),
+        "notifications": [
+            {
+                "id": notification.id,
+                "job_match_id": notification.job_match_id,
+                "type": notification.notification_type,
+                "status": notification.status,
+                "title": notification.title,
+                "message": notification.message,
+            }
+            for notification in created_notifications
+        ],
+    }
