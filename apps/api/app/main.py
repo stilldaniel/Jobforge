@@ -1,20 +1,47 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
 from app.api.career_profiles import router as career_profiles_router
 from app.api.users import router as users_router
 from app.api.jobs import router as jobs_router
 from app.api.job_discovery import router as job_discovery_router
 from app.api.matches import router as matches_router
+from app.services.scheduler import (
+    start_scheduler,
+    stop_scheduler,
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Manage application startup and shutdown.
+    """
+
+    start_scheduler()
+
+    yield
+
+    stop_scheduler()
+
 
 app = FastAPI(
     title="JobForge API",
+    lifespan=lifespan,
 )
 
 
 app.include_router(users_router)
+
 app.include_router(career_profiles_router)
+
 app.include_router(jobs_router)
+
 app.include_router(job_discovery_router)
+
 app.include_router(matches_router)
+
 
 @app.get("/health")
 def health():
