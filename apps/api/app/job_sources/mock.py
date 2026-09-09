@@ -203,7 +203,7 @@ class MockJobSource(JobSource):
             ),
 
             # --------------------------------------------------
-            # 9. NEW JOB — REMOTE — WORLDWIDE
+            # 9. REMOTE — WORLDWIDE
             # Expected: New job → match → notification
             # --------------------------------------------------
             DiscoveredJob(
@@ -222,6 +222,59 @@ class MockJobSource(JobSource):
                 salary_max=5000,
                 application_url=(
                     "https://example.com/jobs/senior-react-engineer"
+                ),
+                source="mock",
+                posted_at=datetime.now(timezone.utc),
+            ),
+
+            # --------------------------------------------------
+            # 10. REMOTE — WORLDWIDE
+            # Expected: New job → high match → immediate notification
+            # --------------------------------------------------
+            DiscoveredJob(
+                title="Senior Next.js Developer",
+                company="FutureStack",
+                description=(
+                    "We are looking for a senior Next.js developer "
+                    "with 4+ years of experience building modern web "
+                    "applications. Strong experience with React, "
+                    "Next.js, TypeScript, JavaScript, Git and "
+                    "Tailwind CSS is required."
+                ),
+                location="Remote",
+                remote_eligibility="Worldwide",
+                work_type="remote",
+                salary_min=3000,
+                salary_max=5000,
+                application_url=(
+                    "https://example.com/jobs/senior-nextjs-developer"
+                ),
+                source="mock",
+                posted_at=datetime.now(timezone.utc),
+            ),
+
+            # --------------------------------------------------
+            # 11. TEST JOB — REMOTE — WORLDWIDE
+            # Expected:
+            # New job → match → score >90 → immediate notification
+            # --------------------------------------------------
+            DiscoveredJob(
+                title="Frontend Developer",
+                company="NotifyTest Labs",
+                description=(
+                    "We are looking for a frontend developer with "
+                    "4+ years of experience building modern web "
+                    "applications. Strong experience with React, "
+                    "Next.js, TypeScript, JavaScript, HTML, CSS, "
+                    "Tailwind CSS and Git is required."
+                ),
+                location="Remote",
+                remote_eligibility="Worldwide",
+                work_type="remote",
+                salary_min=3000,
+                salary_max=5000,
+                application_url=(
+                    "https://example.com/jobs/notify-test-frontend"
                 ),
                 source="mock",
                 posted_at=datetime.now(timezone.utc),

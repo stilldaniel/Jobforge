@@ -11,6 +11,7 @@ from app.services.scheduler import (
     start_scheduler,
     stop_scheduler,
 )
+from app.api.notifications import router as notifications_router
 
 
 @asynccontextmanager
@@ -41,6 +42,8 @@ app.include_router(jobs_router)
 app.include_router(job_discovery_router)
 
 app.include_router(matches_router)
+
+app.include_router(notifications_router)
 
 
 @app.get("/health")
