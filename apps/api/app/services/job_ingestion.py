@@ -36,6 +36,13 @@ def ingest_jobs(
             application_url=discovered_job.application_url,
         )
 
+        print(
+            f"[INGEST] {discovered_job.company} | "
+            f"{discovered_job.title} | "
+            f"{discovered_job.application_url} | "
+            f"{fingerprint}"
+        )
+
         # --------------------------------------------------
         # EXTRACT REQUIREMENTS
         # --------------------------------------------------

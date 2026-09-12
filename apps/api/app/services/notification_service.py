@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app.models.job_match import JobMatch
@@ -18,10 +20,6 @@ def create_notification_for_match(
     for this job match.
     """
 
-    # --------------------------------------------------
-    # CHECK FOR EXISTING NOTIFICATION
-    # --------------------------------------------------
-
     existing_notification = (
         db.query(Notification)
         .filter(
@@ -33,20 +31,12 @@ def create_notification_for_match(
     if existing_notification:
         return None
 
-    # --------------------------------------------------
-    # DETERMINE NOTIFICATION TYPE
-    # --------------------------------------------------
-
     if match.score > 90:
         notification_type = "immediate"
         title = "New high-quality job match"
     else:
         notification_type = "digest"
         title = "New job match"
-
-    # --------------------------------------------------
-    # CREATE MESSAGE
-    # --------------------------------------------------
 
     job = match.job
 
@@ -56,19 +46,33 @@ def create_notification_for_match(
         f"{match.score}%."
     )
 
-    # --------------------------------------------------
-    # CREATE NOTIFICATION
-    # --------------------------------------------------
-
     notification = Notification(
         user_id=match.user_id,
         job_match_id=match.id,
         notification_type=notification_type,
+        channel="email",
         status="pending",
         title=title,
         message=message,
+        attempts=0,
+        last_error=None,
     )
 
     db.add(notification)
+
+    return notification
+
+
+def mark_notification_as_sent(
+    db: Session,
+    notification: Notification,
+) -> Notification:
+    """
+    Mark a notification as successfully sent.
+    """
+
+    notification.status = "sent"
+    notification.sent_at = datetime.now(timezone.utc)
+    notification.last_error = None
 
     return notification

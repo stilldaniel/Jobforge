@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.notification import Notification
 from app.schemas.notification import NotificationResponse
+from app.services.digest_service import (
+    process_digest_notifications,
+    process_pending_notifications,
+)
 
 
 router = APIRouter(
@@ -60,7 +64,30 @@ def mark_notification_as_read(
 
     if notification.read_at is None:
         notification.read_at = datetime.now(timezone.utc)
+
         db.commit()
         db.refresh(notification)
 
     return notification
+
+
+@router.post(
+    "/process",
+)
+def process_notifications(
+    db: Session = Depends(get_db),
+):
+    return process_pending_notifications(
+        db=db,
+    )
+
+
+@router.post(
+    "/digest/process",
+)
+def process_digest(
+    db: Session = Depends(get_db),
+):
+    return process_digest_notifications(
+        db=db,
+    )

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -9,7 +9,10 @@ from app.db.database import Base
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -28,6 +31,12 @@ class Notification(Base):
         nullable=False,
     )
 
+    channel: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="email",
+    )
+
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
@@ -40,6 +49,17 @@ class Notification(Base):
     )
 
     message: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+
+    attempts: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    last_error: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
     )

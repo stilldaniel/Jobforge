@@ -279,4 +279,30 @@ class MockJobSource(JobSource):
                 source="mock",
                 posted_at=datetime.now(timezone.utc),
             ),
+
+            # --------------------------------------------------
+            # 12. TEST JOB — REMOTE — WORLDWIDE
+            # Expected:
+            # New job → match → score <=90 → digest notification
+            # --------------------------------------------------
+            DiscoveredJob(
+                title="Backend Developer",
+                company="DigestTest Labs",
+                description=(
+                    "We are looking for a backend developer with "
+                    "2+ years of experience building web applications. "
+                    "Experience with Python, FastAPI and PostgreSQL "
+                    "is required."
+                ),
+                location="Remote",
+                remote_eligibility="Worldwide",
+                work_type="remote",
+                salary_min=3000,
+                salary_max=5000,
+                application_url=(
+                    "https://example.com/jobs/digest-test-backend"
+                ),
+                source="mock",
+                posted_at=datetime.now(timezone.utc),
+            ),
         ]
