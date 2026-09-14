@@ -27,6 +27,12 @@ out/
 build
 dist
 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+
 
 # Debug
 npm-debug.log*

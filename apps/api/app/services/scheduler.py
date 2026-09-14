@@ -3,6 +3,9 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.database import SessionLocal
+from app.services.digest_service import (
+    process_immediate_notifications,
+)
 from app.services.job_monitor import monitor_jobs
 
 
@@ -12,26 +15,30 @@ scheduler = BackgroundScheduler()
 
 
 def run_monitoring_job():
-    """
-    Run one JobForge monitoring cycle.
-
-    A fresh database session is created for every
-    execution and closed afterward.
-    """
-
     db = SessionLocal()
 
     try:
-        result = monitor_jobs(db=db)
+        result = monitor_jobs(
+            db=db,
+        )
 
         logger.info(
             "Job monitoring completed: %s",
             result,
         )
 
+        notification_result = process_immediate_notifications(
+            db=db,
+        )
+
+        logger.info(
+            "Immediate notification processing completed: %s",
+            notification_result,
+        )
+
     except Exception:
         logger.exception(
-            "Job monitoring failed"
+            "Job monitoring or notification processing failed"
         )
 
     finally:
@@ -39,10 +46,6 @@ def run_monitoring_job():
 
 
 def start_scheduler():
-    """
-    Start the JobForge background scheduler.
-    """
-
     if scheduler.running:
         return
 
@@ -63,20 +66,15 @@ def start_scheduler():
         "Monitoring every 15 minutes."
     )
 
-    # Run the first monitoring cycle immediately.
     run_monitoring_job()
 
 
 def stop_scheduler():
-    """
-    Stop the JobForge background scheduler.
-    """
-
     if not scheduler.running:
         return
 
     scheduler.shutdown(
-        wait=False
+        wait=False,
     )
 
     logger.info(

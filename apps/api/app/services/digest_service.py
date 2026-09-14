@@ -12,6 +12,96 @@ from app.services.notification_service import (
 logger = logging.getLogger(__name__)
 
 
+def process_immediate_notifications(
+    db: Session,
+) -> dict:
+    """
+    Process pending immediate notifications only.
+
+    Immediate notifications are sent as soon as they are created.
+    Digest notifications are intentionally left untouched.
+    """
+
+    notifications = (
+        db.query(Notification)
+        .filter(
+            Notification.notification_type == "immediate",
+            Notification.status == "pending",
+        )
+        .order_by(
+            Notification.created_at.asc()
+        )
+        .all()
+    )
+
+    if not notifications:
+        return {
+            "notifications_processed": 0,
+            "notifications_sent": 0,
+            "notifications_failed": 0,
+        }
+
+    notifications_sent = 0
+    notifications_failed = 0
+
+    for notification in notifications:
+
+        notification.attempts += 1
+
+        try:
+
+            if notification.channel == "email":
+                delivery = EmailDelivery()
+
+            else:
+                raise ValueError(
+                    f"Unsupported notification channel: "
+                    f"{notification.channel}"
+                )
+
+            delivered = delivery.send(
+                db=db,
+                notification=notification,
+            )
+
+            if delivered:
+                mark_notification_as_sent(
+                    db=db,
+                    notification=notification,
+                )
+
+                notifications_sent += 1
+
+            else:
+                notification.status = "failed"
+                notification.last_error = (
+                    "Notification delivery failed."
+                )
+
+                notifications_failed += 1
+
+        except Exception as exc:
+
+            notification.status = "failed"
+            notification.last_error = str(exc)
+
+            logger.exception(
+                "Immediate notification delivery failed | "
+                "notification_id=%s",
+                notification.id,
+            )
+
+            notifications_failed += 1
+
+    db.commit()
+
+    return {
+        "notifications_processed": len(notifications),
+        "notifications_sent": notifications_sent,
+        "notifications_failed": notifications_failed,
+    }
+
+
 def process_pending_notifications(
     db: Session,
 ) -> dict:
