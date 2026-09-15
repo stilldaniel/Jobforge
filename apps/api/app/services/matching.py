@@ -24,41 +24,31 @@ SALARY_WEIGHT = 10
 ALIASES = {
     "js": "javascript",
     "javascript": "javascript",
-
     "ts": "typescript",
     "typescript": "typescript",
-
     "reactjs": "react",
     "react.js": "react",
     "react js": "react",
     "react": "react",
-
     "nextjs": "next.js",
     "next.js": "next.js",
     "next js": "next.js",
-
     "frontend": "frontend",
     "front-end": "frontend",
     "front end": "frontend",
-
     "backend": "backend",
     "back-end": "backend",
     "back end": "backend",
-
     "tailwind": "tailwind css",
     "tailwindcss": "tailwind css",
     "tailwind css": "tailwind css",
-
     "html5": "html",
     "css3": "css",
-
     "node": "node.js",
     "nodejs": "node.js",
     "node.js": "node.js",
-
     "vuejs": "vue",
     "vue.js": "vue",
-
     "angularjs": "angular",
 }
 
@@ -89,10 +79,8 @@ def _normalize_text(value: Any) -> str:
         return ""
 
     text = str(value).strip().lower()
-
     text = text.replace("_", " ")
     text = text.replace("-", " ")
-
     text = re.sub(r"[^\w\s.]", " ", text)
     text = re.sub(r"\s+", " ", text)
 
@@ -101,7 +89,6 @@ def _normalize_text(value: Any) -> str:
 
 def _normalize_alias(value: Any) -> str:
     normalized = _normalize_text(value)
-
     return ALIASES.get(normalized, normalized)
 
 
@@ -130,10 +117,11 @@ def _parse_list(value: Any) -> list[str]:
                 for item in parsed
                 if str(item).strip()
             ]
+
     except (json.JSONDecodeError, TypeError):
         pass
 
-    parts = re.split(r"[,;\n|]+", value)
+    parts = re.split(r"[,;|\n]+", value)
 
     return [
         part.strip()
@@ -180,36 +168,44 @@ def _location_tokens(value: Any) -> set[str]:
     tokens = set(text.split())
 
     if "usa" in tokens or "us" in tokens:
-        tokens.update({
-            "usa",
-            "us",
-            "united",
-            "states",
-        })
+        tokens.update(
+            {
+                "usa",
+                "us",
+                "united",
+                "states",
+            }
+        )
 
     if "united" in tokens and "states" in tokens:
-        tokens.update({
-            "usa",
-            "us",
-        })
+        tokens.update(
+            {
+                "usa",
+                "us",
+            }
+        )
 
     if "uk" in tokens:
-        tokens.update({
-            "uk",
-            "united",
-            "kingdom",
-        })
+        tokens.update(
+            {
+                "uk",
+                "united",
+                "kingdom",
+            }
+        )
 
     if "united" in tokens and "kingdom" in tokens:
         tokens.add("uk")
 
     if "uae" in tokens:
-        tokens.update({
-            "uae",
-            "united",
-            "arab",
-            "emirates",
-        })
+        tokens.update(
+            {
+                "uae",
+                "united",
+                "arab",
+                "emirates",
+            }
+        )
 
     if "nigeria" in tokens:
         tokens.add("ng")
@@ -307,7 +303,6 @@ def _title_score(
         len(job_tokens),
     )
 
-    # Frontend family.
     if (
         "frontend" in candidate_tokens
         and "frontend" in job_tokens
@@ -469,7 +464,6 @@ def _experience_score(
             False,
         )
 
-    # Candidate meets or exceeds requirement.
     if candidate_experience >= required_experience:
         return (
             EXPERIENCE_WEIGHT,
@@ -481,14 +475,6 @@ def _experience_score(
         required_experience
         - candidate_experience
     )
-
-    # --------------------------------------------------------
-    # IMPORTANT:
-    #
-    # Being slightly below the experience requirement is
-    # NOT considered an eligibility failure anymore.
-    # It simply reduces the score.
-    # --------------------------------------------------------
 
     if difference == 1:
         return (
@@ -584,12 +570,12 @@ def _work_type_score(
             False,
         )
 
-    # Work type mismatch is a strong negative signal,
-    # but it is not the same as geographic ineligibility.
+    # Work type mismatch is a negative preference,
+    # but it is NOT a hard eligibility failure.
     return (
         0,
         "Preferred work type does not match",
-        True,
+        False,
     )
 
 
@@ -652,7 +638,7 @@ def _location_score(
 
     if _is_remote_job(job):
 
-        # Worldwide.
+        # Explicitly worldwide / unrestricted remote.
         if (
             _contains_worldwide(
                 remote_eligibility
@@ -667,9 +653,17 @@ def _location_score(
                 False,
             )
 
-        # Explicit eligibility.
-        if remote_eligibility:
-
+        # Explicit geographic eligibility.
+        #
+        # "Nigeria", "Lagos", "United States", etc.
+        # represent geographic restrictions.
+        #
+        # "remote", "wfh", and similar values only describe
+        # the work arrangement and do not specify geography.
+        if (
+            remote_eligibility
+            and remote_eligibility not in REMOTE_TERMS
+        ):
             if candidate_tokens.intersection(
                 eligibility_tokens
             ):
@@ -685,10 +679,10 @@ def _location_score(
                 True,
             )
 
-        # Unknown eligibility.
+        # Remote, but geographic eligibility is unknown.
         return (
             2,
-            "Remote eligibility is not specified",
+            "Remote eligibility is not geographically specified",
             False,
         )
 
@@ -959,18 +953,21 @@ def calculate_match_score(
 
     # Experience is deliberately NOT included here.
     #
-    # A candidate being one year short of a requirement
-    # should lower the score, not make the candidate
-    # "ineligible".
+    # A candidate being below the experience requirement
+    # reduces the score but does not make the job ineligible.
     #
+    # Work type is also deliberately NOT included here.
+    #
+    # Geographic incompatibility and salary below the
+    # candidate's minimum remain hard eligibility failures.
+
     hard_ineligible = (
         location_problem
-        or work_type_problem
         or salary_problem
     )
 
     # --------------------------------------------------------
-    # Geographic/work/salary incompatibility
+    # Geographic / salary incompatibility
     # --------------------------------------------------------
 
     if hard_ineligible:
@@ -1001,9 +998,16 @@ def calculate_match_score(
         )
     )
 
-    if (
+    geographic_scope_unknown = (
         job_is_remote
-        and not remote_eligibility
+        and (
+            not remote_eligibility
+            or remote_eligibility in REMOTE_TERMS
+        )
+    )
+
+    if (
+        geographic_scope_unknown
         and not hard_ineligible
     ):
         score = min(
@@ -1012,7 +1016,7 @@ def calculate_match_score(
         )
 
     # --------------------------------------------------------
-    # Final bounds.
+    # Final bounds
     # --------------------------------------------------------
 
     score = max(
