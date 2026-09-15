@@ -1,4 +1,5 @@
 import logging
+import os
 
 from sqlalchemy.orm import Session
 
@@ -12,14 +13,81 @@ from app.services.notification_service import (
 logger = logging.getLogger(__name__)
 
 
+def get_max_notification_attempts() -> int:
+    """
+    Return the maximum number of delivery attempts allowed
+    for a notification.
+    """
+
+    try:
+        value = int(
+            os.getenv(
+                "NOTIFICATION_MAX_ATTEMPTS",
+                "3",
+            )
+        )
+
+        return max(value, 1)
+
+    except ValueError:
+        logger.warning(
+            "Invalid NOTIFICATION_MAX_ATTEMPTS value. "
+            "Falling back to 3."
+        )
+
+        return 3
+
+
+def mark_notification_as_failed(
+    notification: Notification,
+    error: str,
+) -> None:
+    """
+    Mark a notification as permanently failed.
+    """
+
+    notification.status = "failed"
+    notification.last_error = error
+
+
+def handle_delivery_failure(
+    notification: Notification,
+    error: str,
+    max_attempts: int,
+) -> bool:
+    """
+    Handle a failed notification delivery.
+
+    Returns True when the notification has reached the
+    maximum number of attempts and is permanently failed.
+
+    Returns False when the notification should remain pending
+    for another retry.
+    """
+
+    notification.last_error = error
+
+    if notification.attempts >= max_attempts:
+        mark_notification_as_failed(
+            notification=notification,
+            error=error,
+        )
+
+        return True
+
+    notification.status = "pending"
+
+    return False
+
+
 def process_immediate_notifications(
     db: Session,
 ) -> dict:
     """
     Process pending immediate notifications only.
 
-    Immediate notifications are sent individually as soon as
-    they are created.
+    Failed notifications remain pending until they reach
+    the maximum number of delivery attempts.
 
     Digest notifications are intentionally left untouched.
     """
@@ -42,6 +110,8 @@ def process_immediate_notifications(
             "notifications_sent": 0,
             "notifications_failed": 0,
         }
+
+    max_attempts = get_max_notification_attempts()
 
     notifications_sent = 0
     notifications_failed = 0
@@ -72,24 +142,32 @@ def process_immediate_notifications(
                 notifications_sent += 1
 
             else:
-                notification.status = "failed"
-                notification.last_error = (
-                    "Notification delivery failed."
+                permanently_failed = handle_delivery_failure(
+                    notification=notification,
+                    error="Notification delivery failed.",
+                    max_attempts=max_attempts,
                 )
 
-                notifications_failed += 1
+                if permanently_failed:
+                    notifications_failed += 1
 
         except Exception as exc:
-            notification.status = "failed"
-            notification.last_error = str(exc)
+            permanently_failed = handle_delivery_failure(
+                notification=notification,
+                error=str(exc),
+                max_attempts=max_attempts,
+            )
 
             logger.exception(
                 "Immediate notification delivery failed | "
-                "notification_id=%s",
+                "notification_id=%s | attempt=%s/%s",
                 notification.id,
+                notification.attempts,
+                max_attempts,
             )
 
-            notifications_failed += 1
+            if permanently_failed:
+                notifications_failed += 1
 
     db.commit()
 
@@ -131,6 +209,8 @@ def process_pending_notifications(
             "notifications_failed": 0,
         }
 
+    max_attempts = get_max_notification_attempts()
+
     notifications_sent = 0
     notifications_failed = 0
 
@@ -160,24 +240,32 @@ def process_pending_notifications(
                 notifications_sent += 1
 
             else:
-                notification.status = "failed"
-                notification.last_error = (
-                    "Notification delivery failed."
+                permanently_failed = handle_delivery_failure(
+                    notification=notification,
+                    error="Notification delivery failed.",
+                    max_attempts=max_attempts,
                 )
 
-                notifications_failed += 1
+                if permanently_failed:
+                    notifications_failed += 1
 
         except Exception as exc:
-            notification.status = "failed"
-            notification.last_error = str(exc)
+            permanently_failed = handle_delivery_failure(
+                notification=notification,
+                error=str(exc),
+                max_attempts=max_attempts,
+            )
 
             logger.exception(
                 "Notification delivery failed | "
-                "notification_id=%s",
+                "notification_id=%s | attempt=%s/%s",
                 notification.id,
+                notification.attempts,
+                max_attempts,
             )
 
-            notifications_failed += 1
+            if permanently_failed:
+                notifications_failed += 1
 
     db.commit()
 
@@ -197,17 +285,8 @@ def process_digest_notifications(
     All pending digest notifications belonging to the same user
     are combined into a single email.
 
-    Example:
-
-        User has 3 pending digest matches
-
-        Match A
-        Match B
-        Match C
-
-        ↓
-
-        One digest email containing A, B and C.
+    Failed digest notifications remain pending until the group
+    reaches the maximum number of delivery attempts.
     """
 
     notifications = (
@@ -241,6 +320,8 @@ def process_digest_notifications(
             [],
         ).append(notification)
 
+    max_attempts = get_max_notification_attempts()
+
     users_processed = 0
     notifications_processed = 0
     notifications_sent = 0
@@ -255,18 +336,15 @@ def process_digest_notifications(
             notification.attempts += 1
 
         try:
-            if any(
-                notification.channel != "email"
-                for notification in user_notifications
-            ):
-                unsupported_channels = sorted(
-                    {
-                        notification.channel
-                        for notification in user_notifications
-                        if notification.channel != "email"
-                    }
-                )
+            unsupported_channels = sorted(
+                {
+                    notification.channel
+                    for notification in user_notifications
+                    if notification.channel != "email"
+                }
+            )
 
+            if unsupported_channels:
                 raise ValueError(
                     "Unsupported notification channel(s): "
                     + ", ".join(unsupported_channels)
@@ -300,10 +378,14 @@ def process_digest_notifications(
             )
 
             for notification in user_notifications:
-                notification.status = "failed"
-                notification.last_error = str(exc)
+                permanently_failed = handle_delivery_failure(
+                    notification=notification,
+                    error=str(exc),
+                    max_attempts=max_attempts,
+                )
 
-                notifications_failed += 1
+                if permanently_failed:
+                    notifications_failed += 1
 
     db.commit()
 
