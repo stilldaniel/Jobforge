@@ -22,9 +22,7 @@ def create_notification_for_match(
 
     existing_notification = (
         db.query(Notification)
-        .filter(
-            Notification.job_match_id == match.id
-        )
+        .filter(Notification.job_match_id == match.id)
         .first()
     )
 
@@ -59,6 +57,7 @@ def create_notification_for_match(
     )
 
     db.add(notification)
+    db.flush()
 
     return notification
 
