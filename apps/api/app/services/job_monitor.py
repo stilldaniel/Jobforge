@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.career_profile import CareerProfile
@@ -8,6 +10,9 @@ from app.services.matching import calculate_match_score
 from app.services.notification_service import create_notification_for_match
 from app.job_sources.base import JobSource
 from app.job_sources.registry import get_job_sources
+
+
+logger = logging.getLogger(__name__)
 
 
 def monitor_jobs(
@@ -26,24 +31,37 @@ def monitor_jobs(
     Existing jobs are updated by ingestion but do not trigger
     new notifications.
 
-    A list of job sources can be injected for testing or custom
-    source configuration. If no sources are supplied, the default
-    registry is used.
+    Individual source failures are isolated so that one failing
+    source does not prevent other sources from being processed.
     """
     if sources is None:
         sources = get_job_sources()
 
     all_created_jobs: list[Job] = []
     total_updated_jobs = 0
+    source_errors: list[str] = []
 
     for source in sources:
-        created_jobs, updated_jobs = ingest_jobs(
-            db=db,
-            source=source,
-        )
+        source_name = source.__class__.__name__
 
-        all_created_jobs.extend(created_jobs)
-        total_updated_jobs += len(updated_jobs)
+        try:
+            created_jobs, updated_jobs = ingest_jobs(
+                db=db,
+                source=source,
+            )
+
+            all_created_jobs.extend(created_jobs)
+            total_updated_jobs += len(updated_jobs)
+
+        except Exception as exc:
+            logger.exception(
+                "Job source failed during monitoring: %s",
+                source_name,
+            )
+
+            source_errors.append(
+                f"{source_name}: {str(exc)}"
+            )
 
     if not all_created_jobs:
         return {
@@ -52,6 +70,7 @@ def monitor_jobs(
             "updated_jobs": total_updated_jobs,
             "matches_created": 0,
             "notifications_created": 0,
+            "source_errors": source_errors,
         }
 
     profiles = db.query(CareerProfile).all()
@@ -79,6 +98,7 @@ def monitor_jobs(
                 match = existing_match
                 match.score = score
                 match.match_reasons = "; ".join(reasons)
+
             else:
                 match = JobMatch(
                     user_id=profile.user_id,
@@ -108,4 +128,5 @@ def monitor_jobs(
         "updated_jobs": total_updated_jobs,
         "matches_created": matches_created,
         "notifications_created": notifications_created,
+        "source_errors": source_errors,
     }
