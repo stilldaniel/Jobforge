@@ -1,10 +1,9 @@
-from datetime import datetime, timezone
-
 from app.models.career_profile import CareerProfile
 from app.models.job import Job
 from app.models.job_match import JobMatch
 from app.models.notification import Notification
 from app.services.job_monitor import monitor_jobs
+from app.job_sources.mock import MockJobSource
 
 
 def make_profile(db, **overrides):
@@ -30,10 +29,17 @@ def make_profile(db, **overrides):
     return profile
 
 
+def run_mock_monitor(db):
+    return monitor_jobs(
+        db,
+        sources=[MockJobSource()],
+    )
+
+
 def test_first_monitoring_run_creates_jobs_matches_and_notifications(db):
     profile = make_profile(db, user_id=1)
 
-    result = monitor_jobs(db)
+    result = run_mock_monitor(db)
 
     assert result["new_jobs"] == 12
     assert result["matches_created"] == 12
@@ -55,13 +61,13 @@ def test_second_monitoring_run_does_not_create_duplicate_matches_or_notification
 ):
     make_profile(db, user_id=1)
 
-    first_result = monitor_jobs(db)
+    first_result = run_mock_monitor(db)
 
     assert first_result["new_jobs"] == 12
     assert first_result["matches_created"] == 12
     assert first_result["notifications_created"] == 12
 
-    second_result = monitor_jobs(db)
+    second_result = run_mock_monitor(db)
 
     assert second_result["new_jobs"] == 0
     assert second_result["updated_jobs"] == 12
@@ -77,7 +83,7 @@ def test_monitoring_handles_multiple_career_profiles(db):
     make_profile(db, user_id=1)
     make_profile(db, user_id=2)
 
-    result = monitor_jobs(db)
+    result = run_mock_monitor(db)
 
     assert result["new_jobs"] == 12
     assert result["matches_created"] == 24
@@ -106,7 +112,7 @@ def test_monitoring_handles_multiple_career_profiles(db):
 def test_existing_job_updates_do_not_create_new_notifications(db):
     make_profile(db, user_id=1)
 
-    first_result = monitor_jobs(db)
+    first_result = run_mock_monitor(db)
 
     assert first_result["new_jobs"] == 12
     assert first_result["notifications_created"] == 12
@@ -125,7 +131,7 @@ def test_existing_job_updates_do_not_create_new_notifications(db):
     job.description = "Updated description for an existing job."
     db.commit()
 
-    second_result = monitor_jobs(db)
+    second_result = run_mock_monitor(db)
 
     assert second_result["new_jobs"] == 0
     assert second_result["updated_jobs"] == 12
@@ -143,7 +149,7 @@ def test_existing_job_updates_do_not_create_new_notifications(db):
 def test_notifications_use_score_threshold(db):
     make_profile(db, user_id=1)
 
-    monitor_jobs(db)
+    run_mock_monitor(db)
 
     immediate_notifications = (
         db.query(Notification)
