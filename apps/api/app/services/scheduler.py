@@ -6,8 +6,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.database import SessionLocal
 from app.services.digest_service import process_digest_notifications
-from app.services.digest_service import process_immediate_notifications
 from app.services.job_monitor import monitor_jobs
+from app.services.digest_service import process_immediate_notifications
 
 
 logger = logging.getLogger(__name__)
@@ -15,6 +15,43 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler(
     timezone=ZoneInfo("Africa/Lagos")
 )
+
+
+def get_digest_schedule() -> tuple[int, int]:
+    """
+    Read and validate the daily digest schedule from environment variables.
+
+    Defaults to 08:00 if the configured hour or minute is invalid.
+    """
+
+    default_hour = 8
+    default_minute = 0
+
+    try:
+        hour = int(os.getenv("DIGEST_HOUR", str(default_hour)))
+        minute = int(os.getenv("DIGEST_MINUTE", str(default_minute)))
+    except ValueError:
+        logger.warning(
+            "Invalid digest schedule configuration. "
+            "Falling back to 08:00."
+        )
+        return default_hour, default_minute
+
+    if not 0 <= hour <= 23:
+        logger.warning(
+            "Invalid DIGEST_HOUR=%s. Falling back to 08:00.",
+            hour,
+        )
+        return default_hour, default_minute
+
+    if not 0 <= minute <= 59:
+        logger.warning(
+            "Invalid DIGEST_MINUTE=%s. Falling back to 08:00.",
+            minute,
+        )
+        return default_hour, default_minute
+
+    return hour, minute
 
 
 def run_monitoring_job():
@@ -75,13 +112,7 @@ def start_scheduler():
         == "true"
     )
 
-    digest_hour = int(
-        os.getenv("DIGEST_HOUR", "8")
-    )
-
-    digest_minute = int(
-        os.getenv("DIGEST_MINUTE", "0")
-    )
+    digest_hour, digest_minute = get_digest_schedule()
 
     scheduler.add_job(
         run_monitoring_job,
