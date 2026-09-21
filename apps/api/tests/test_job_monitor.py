@@ -4,6 +4,7 @@ from app.models.job_match import JobMatch
 from app.models.notification import Notification
 from app.services.job_monitor import monitor_jobs
 from app.job_sources.mock import MockJobSource
+from app.job_sources.base import DiscoveredJob, JobSource
 
 
 def make_profile(db, **overrides):
@@ -34,6 +35,30 @@ def run_mock_monitor(db):
         db,
         sources=[MockJobSource()],
     )
+
+
+class FailingJobSource(JobSource):
+    def fetch_jobs(self):
+        raise RuntimeError("Simulated source failure")
+
+
+class SuccessfulJobSource(JobSource):
+    def fetch_jobs(self):
+        return [
+            DiscoveredJob(
+                title="Successful Source Developer",
+                company="Working Source",
+                description="A test job from a successful source.",
+                location="Worldwide",
+                work_type="remote",
+                salary_min=3000,
+                salary_max=5000,
+                application_url="https://example.com/job",
+                source="successful_source",
+                posted_at=None,
+                remote_eligibility="Remote",
+            )
+        ]
 
 
 def test_first_monitoring_run_creates_jobs_matches_and_notifications(db):
@@ -187,3 +212,57 @@ def test_notifications_use_score_threshold(db):
 
         assert match is not None
         assert match.score <= 90
+
+
+def test_monitoring_continues_when_one_source_fails(db):
+    make_profile(db, user_id=1)
+
+    result = monitor_jobs(
+        db,
+        sources=[
+            FailingJobSource(),
+            SuccessfulJobSource(),
+        ],
+    )
+
+    assert result["jobs_found"] == 1
+    assert result["new_jobs"] == 1
+    assert result["matches_created"] == 1
+    assert result["notifications_created"] == 1
+
+    assert len(result["source_errors"]) == 1
+    assert "FailingJobSource" in result["source_errors"][0]
+    assert "Simulated source failure" in result["source_errors"][0]
+
+    assert db.query(Job).count() == 1
+    assert db.query(JobMatch).count() == 1
+    assert db.query(Notification).count() == 1
+
+
+def test_monitoring_returns_clean_result_when_all_sources_fail(db):
+    make_profile(db, user_id=1)
+
+    result = monitor_jobs(
+        db,
+        sources=[
+            FailingJobSource(),
+            FailingJobSource(),
+        ],
+    )
+
+    assert result["jobs_found"] == 0
+    assert result["new_jobs"] == 0
+    assert result["updated_jobs"] == 0
+    assert result["matches_created"] == 0
+    assert result["notifications_created"] == 0
+
+    assert len(result["source_errors"]) == 2
+
+    assert all(
+        "FailingJobSource" in error
+        for error in result["source_errors"]
+    )
+
+    assert db.query(Job).count() == 0
+    assert db.query(JobMatch).count() == 0
+    assert db.query(Notification).count() == 0

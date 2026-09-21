@@ -21,19 +21,28 @@ class AdzunaJobSource(JobSource):
         query: str = "frontend developer",
         location: str | None = None,
         results_per_page: int = 20,
+        timeout: float = 30.0,
     ):
         self.app_id = app_id or os.getenv("ADZUNA_APP_ID")
         self.app_key = app_key or os.getenv("ADZUNA_APP_KEY")
-        self.country = country or os.getenv("ADZUNA_COUNTRY", "gb")
+        self.country = country or os.getenv(
+            "ADZUNA_COUNTRY",
+            "gb",
+        )
         self.query = query
         self.location = location
         self.results_per_page = results_per_page
+        self.timeout = timeout
 
         if not self.app_id:
-            raise ValueError("ADZUNA_APP_ID is not configured")
+            raise ValueError(
+                "ADZUNA_APP_ID is not configured"
+            )
 
         if not self.app_key:
-            raise ValueError("ADZUNA_APP_KEY is not configured")
+            raise ValueError(
+                "ADZUNA_APP_KEY is not configured"
+            )
 
     def fetch_jobs(self) -> list[DiscoveredJob]:
         url = (
@@ -46,7 +55,6 @@ class AdzunaJobSource(JobSource):
             "app_key": self.app_key,
             "results_per_page": self.results_per_page,
             "what": self.query,
-            "content-type": "application/json",
         }
 
         if self.location:
@@ -55,7 +63,7 @@ class AdzunaJobSource(JobSource):
         response = httpx.get(
             url,
             params=params,
-            timeout=30.0,
+            timeout=self.timeout,
         )
 
         response.raise_for_status()
@@ -67,7 +75,11 @@ class AdzunaJobSource(JobSource):
         for item in data.get("results", []):
             location_data = item.get("location") or {}
 
-            location_name = location_data.get("display_name")
+            location_name = location_data.get(
+                "display_name"
+            )
+
+            company_data = item.get("company") or {}
 
             posted_at = self._parse_datetime(
                 item.get("created")
@@ -75,25 +87,37 @@ class AdzunaJobSource(JobSource):
 
             discovered_jobs.append(
                 DiscoveredJob(
-                    title=item.get("title", "Untitled Job"),
-                    company=item.get("company", {}).get(
+                    title=item.get(
+                        "title",
+                        "Untitled Job",
+                    ),
+                    company=company_data.get(
                         "display_name",
                         "Unknown Company",
                     ),
-                    description=item.get("description"),
+                    description=item.get(
+                        "description"
+                    ),
                     location=location_name,
-                    work_type=self._extract_work_type(item),
+                    work_type=self._extract_work_type(
+                        item
+                    ),
                     salary_min=self._to_int(
                         item.get("salary_min")
                     ),
                     salary_max=self._to_int(
                         item.get("salary_max")
                     ),
-                    application_url=item.get("redirect_url", ""),
+                    application_url=item.get(
+                        "redirect_url",
+                        "",
+                    ),
                     source="adzuna",
                     posted_at=posted_at,
-                    remote_eligibility=self._extract_remote_eligibility(
-                        item
+                    remote_eligibility=(
+                        self._extract_remote_eligibility(
+                            item
+                        )
                     ),
                 )
             )
@@ -111,19 +135,26 @@ class AdzunaJobSource(JobSource):
             return None
 
     @staticmethod
-    def _parse_datetime(value: str | None) -> datetime | None:
+    def _parse_datetime(
+        value: str | None,
+    ) -> datetime | None:
         if not value:
             return None
 
         try:
             return datetime.fromisoformat(
-                value.replace("Z", "+00:00")
+                value.replace(
+                    "Z",
+                    "+00:00",
+                )
             )
         except ValueError:
             return None
 
     @staticmethod
-    def _extract_work_type(item: dict) -> str | None:
+    def _extract_work_type(
+        item: dict,
+    ) -> str | None:
         description = (
             item.get("description") or ""
         ).lower()
