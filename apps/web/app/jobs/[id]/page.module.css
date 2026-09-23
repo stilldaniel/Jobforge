@@ -1,0 +1,418 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 7px;
+  color: #706a75;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+
+.backLink:hover {
+  color: #7b34a3;
+}
+
+.jobHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+  padding: 28px;
+  border: 1px solid #ebe7ee;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(29, 20, 38, 0.03);
+}
+
+.heroMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  min-width: 0;
+}
+
+.companyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 13px;
+  color: #7b34a3;
+  background: #f1e9f6;
+}
+
+.heroText {
+  min-width: 0;
+}
+
+.company {
+  margin: 0 0 6px;
+  color: #7b34a3;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.title {
+  margin: 0;
+  color: #17151a;
+  font-size: clamp(26px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.heroMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 14px;
+}
+
+.heroMeta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #77717d;
+  font-size: 12px;
+}
+
+.matchBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  min-width: 135px;
+  padding: 15px 18px;
+  border: 1px solid #eadff0;
+  border-radius: 12px;
+  background: #faf7fc;
+}
+
+.matchLabel {
+  color: #77717d;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.matchScore {
+  margin-top: 3px;
+  color: #7b34a3;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.matchDescription {
+  margin-top: 5px;
+  color: #8a838e;
+  font-size: 9px;
+  text-align: right;
+}
+
+.contentGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  align-items: start;
+  gap: 20px;
+}
+
+.mainContent {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section,
+.detailsCard {
+  border: 1px solid #ebe7ee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 3px 12px rgba(29, 20, 38, 0.03);
+}
+
+.section {
+  padding: 24px;
+}
+
+.sectionHeader {
+  margin-bottom: 18px;
+}
+
+.sectionEyebrow {
+  margin: 0 0 5px;
+  color: #7b34a3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #211e24;
+  font-size: 19px;
+  letter-spacing: -0.02em;
+}
+
+.description {
+  color: #5f5964;
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.description p {
+  margin: 0 0 14px;
+}
+
+.description p:last-child {
+  margin-bottom: 0;
+}
+
+.noData {
+  margin: 0;
+  color: #88818c;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.reasonList {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.reasonItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid #eee8f1;
+  border-radius: 9px;
+  color: #615a66;
+  background: #fcfbfd;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.reasonItem svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #7b34a3;
+}
+
+.sidebar {
+  position: sticky;
+  top: 88px;
+}
+
+.detailsCard {
+  padding: 20px;
+}
+
+.cardTitle {
+  margin: 0 0 18px;
+  color: #211e24;
+  font-size: 16px;
+  letter-spacing: -0.015em;
+}
+
+.detailList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detailItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.detailIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  color: #7b34a3;
+  background: #f5eff8;
+}
+
+.detailItem > div:last-child {
+  min-width: 0;
+}
+
+.detailLabel {
+  display: block;
+  margin-bottom: 3px;
+  color: #918a96;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.detailValue {
+  display: block;
+  color: #403a44;
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.applyButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 22px;
+  padding: 12px 15px;
+  border-radius: 9px;
+  background: #7b34a3;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.applyButton:hover {
+  background: #68288d;
+  transform: translateY(-1px);
+}
+
+.loading,
+.errorState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 32px;
+  border: 1px solid #ebe7ee;
+  border-radius: 14px;
+  background: #ffffff;
+  text-align: center;
+}
+
+.loading {
+  flex-direction: row;
+  gap: 10px;
+  color: #716b76;
+  font-size: 13px;
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+.errorState {
+  color: #77717d;
+}
+
+.errorState > svg {
+  color: #7b34a3;
+}
+
+.errorState h2 {
+  margin: 12px 0 0;
+  color: #252128;
+  font-size: 18px;
+}
+
+.errorState p {
+  max-width: 480px;
+  margin: 8px 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border: 1px solid #e3d9e8;
+  border-radius: 9px;
+  color: #6d6371;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.backButton:hover {
+  border-color: #cdbbd5;
+  color: #7b34a3;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+  }
+
+  .jobHero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .matchBox {
+    align-items: flex-start;
+    width: 100%;
+  }
+
+  .matchDescription {
+    text-align: left;
+  }
+}
+
+@media (max-width: 600px) {
+  .jobHero,
+  .section,
+  .detailsCard {
+    padding: 18px;
+  }
+
+  .heroMain {
+    gap: 12px;
+  }
+
+  .companyIcon {
+    width: 44px;
+    height: 44px;
+  }
+
+  .title {
+    font-size: 25px;
+  }
+
+  .heroMeta {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

@@ -505,9 +505,14 @@ export default function JobsPage() {
                                 {job.company}
                               </p>
 
-                              <h3 className={styles.jobTitle}>
-                                {job.title}
-                              </h3>
+                              <Link
+                                href={`/jobs/${job.id}`}
+                                className={styles.jobTitleLink}
+                              >
+                                <h3 className={styles.jobTitle}>
+                                  {job.title}
+                                </h3>
+                              </Link>
                             </div>
 
                             {match && (
