@@ -11,6 +11,7 @@ from app.api.job_discovery import router as job_discovery_router
 from app.api.matches import router as matches_router
 from app.api.notifications import router as notifications_router
 from app.services.scheduler import start_scheduler, stop_scheduler
+from app.api.saved_jobs import router as saved_jobs_router
 
 
 load_dotenv()
@@ -47,6 +48,7 @@ app.include_router(jobs_router)
 app.include_router(job_discovery_router)
 app.include_router(matches_router)
 app.include_router(notifications_router)
+app.include_router(saved_jobs_router)
 
 
 @app.get("/health")

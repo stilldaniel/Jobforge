@@ -104,3 +104,9 @@ class Job(Base):
         back_populates="job",
         cascade="all, delete-orphan",
     )
+
+    saved_jobs = relationship(
+        "SavedJob",
+        back_populates="job",
+        cascade="all, delete-orphan",
+    )

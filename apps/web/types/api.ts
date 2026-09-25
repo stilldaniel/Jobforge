@@ -147,3 +147,16 @@ export interface MatchGenerationResponse {
   updated_jobs?: number;
   source_errors?: string[];
 }
+
+export interface SavedJob {
+  id: number;
+  user_id: number;
+  job_id: number;
+  created_at: string;
+  job: Job;
+}
+
+export interface SavedJobCreate {
+  user_id: number;
+  job_id: number;
+}

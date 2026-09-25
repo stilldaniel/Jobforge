@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
+  Bookmark,
   Briefcase,
   Building2,
   CalendarDays,
@@ -20,6 +21,11 @@ import {
 import AppShell from "@/components/layout/AppShell";
 import { getJob } from "@/lib/api/jobs";
 import { getUserMatches } from "@/lib/api/matches";
+import {
+  getSavedJob,
+  saveJob,
+  unsaveJob,
+} from "@/lib/api/saved-jobs";
 
 import type { Job, MatchedJob } from "@/types/api";
 
@@ -35,6 +41,9 @@ export default function JobDetailsPage() {
   const [match, setMatch] = useState<MatchedJob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function loadJob() {
@@ -59,6 +68,13 @@ export default function JobDetailsPage() {
           matchesResult.find((item) => item.job_id === jobId) ?? null;
 
         setMatch(userMatch);
+
+        try {
+          await getSavedJob(USER_ID, jobId);
+          setIsSaved(true);
+        } catch {
+          setIsSaved(false);
+        }
       } catch (err) {
         setError(
           err instanceof Error
@@ -72,6 +88,31 @@ export default function JobDetailsPage() {
 
     loadJob();
   }, [jobId]);
+
+  const handleSaveToggle = async () => {
+    if (!job || saving) {
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      if (isSaved) {
+        await unsaveJob(USER_ID, job.id);
+        setIsSaved(false);
+      } else {
+        await saveJob({
+          user_id: USER_ID,
+          job_id: job.id,
+        });
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Failed to update saved job:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const matchReasons = useMemo(() => {
     if (!match?.match_reasons) {
@@ -401,18 +442,43 @@ export default function JobDetailsPage() {
                     </div>
                   </div>
 
-                  <a
-                    href={job.application_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={styles.applyButton}
-                  >
-                    Apply for this job
-                    <ArrowRight
-                      size={16}
-                      strokeWidth={1.8}
-                    />
-                  </a>
+                  <div className={styles.actionButtons}>
+                    <a
+                      href={job.application_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className={styles.applyButton}
+                    >
+                      Apply for this job
+                      <ArrowRight
+                        size={16}
+                        strokeWidth={1.8}
+                      />
+                    </a>
+
+                    <button
+                      type="button"
+                      className={styles.saveButton}
+                      onClick={handleSaveToggle}
+                      disabled={saving}
+                    >
+                      <Bookmark
+                        size={18}
+                        strokeWidth={1.8}
+                        fill={
+                          isSaved
+                            ? "currentColor"
+                            : "none"
+                        }
+                      />
+
+                      {saving
+                        ? "Saving..."
+                        : isSaved
+                          ? "Saved"
+                          : "Save Job"}
+                    </button>
+                  </div>
                 </section>
               </aside>
             </div>
