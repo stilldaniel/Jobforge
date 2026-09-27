@@ -110,3 +110,8 @@ class Job(Base):
         back_populates="job",
         cascade="all, delete-orphan",
     )
+    applications = relationship(
+        "Application",
+        back_populates="job",
+        cascade="all, delete-orphan",
+    )

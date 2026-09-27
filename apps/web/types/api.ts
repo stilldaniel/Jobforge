@@ -160,3 +160,24 @@ export interface SavedJobCreate {
   user_id: number;
   job_id: number;
 }
+
+export interface Application {
+  id: number;
+  user_id: number;
+  job_id: number;
+  status: string;
+  applied_at: string;
+  notes: string | null;
+  job: Job;
+}
+
+export interface ApplicationCreate {
+  user_id: number;
+  job_id: number;
+  notes?: string | null;
+}
+
+export interface ApplicationUpdate {
+  status?: string | null;
+  notes?: string | null;
+}
