@@ -568,6 +568,16 @@ export default function JobsPage() {
                         </div>
 
                         <div className={styles.jobActions}>
+                          <Link
+                            href={`/jobs/${job.id}`}
+                            className={styles.viewButton}
+                          >
+                            View Job
+                            <ArrowRight
+                              size={15}
+                              strokeWidth={1.8}
+                            />
+                          </Link>
                           <a
                             href={job.application_url}
                             target="_blank"

@@ -8,8 +8,10 @@ import {
   ArrowRight,
   Bookmark,
   Briefcase,
+  BriefcaseBusiness,
   Building2,
   CalendarDays,
+  Check,
   CheckCircle2,
   CircleAlert,
   ExternalLink,
@@ -22,6 +24,8 @@ import AppShell from "@/components/layout/AppShell";
 import { getJob } from "@/lib/api/jobs";
 import { getUserMatches } from "@/lib/api/matches";
 import {
+  createApplication,
+  getApplication,
   getSavedJob,
   saveJob,
   unsaveJob,
@@ -44,6 +48,9 @@ export default function JobDetailsPage() {
 
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [isApplied, setIsApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     async function loadJob() {
@@ -74,6 +81,13 @@ export default function JobDetailsPage() {
           setIsSaved(true);
         } catch {
           setIsSaved(false);
+        }
+
+        try {
+          await getApplication(USER_ID, jobId);
+          setIsApplied(true);
+        } catch {
+          setIsApplied(false);
         }
       } catch (err) {
         setError(
@@ -111,6 +125,30 @@ export default function JobDetailsPage() {
       console.error("Failed to update saved job:", err);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTrackApplication = async () => {
+    if (!job || isApplied || applying) {
+      return;
+    }
+
+    try {
+      setApplying(true);
+
+      await createApplication({
+        user_id: USER_ID,
+        job_id: job.id,
+      });
+
+      setIsApplied(true);
+    } catch (err) {
+      console.error(
+        "Failed to track application:",
+        err,
+      );
+    } finally {
+      setApplying(false);
     }
   };
 
@@ -152,7 +190,10 @@ export default function JobDetailsPage() {
       return null;
     }
 
-    if (job.salary_min !== null && job.salary_max !== null) {
+    if (
+      job.salary_min !== null &&
+      job.salary_max !== null
+    ) {
       return `$${job.salary_min.toLocaleString()} – $${job.salary_max.toLocaleString()}`;
     }
 
@@ -172,6 +213,7 @@ export default function JobDetailsPage() {
               size={22}
               className={styles.spinner}
             />
+
             <span>Loading job details...</span>
           </div>
         ) : error || !job ? (
@@ -181,14 +223,19 @@ export default function JobDetailsPage() {
             <h2>Unable to load this job</h2>
 
             <p>
-              {error || "The requested job could not be found."}
+              {error ||
+                "The requested job could not be found."}
             </p>
 
             <Link
               href="/jobs"
               className={styles.backButton}
             >
-              <ArrowLeft size={16} strokeWidth={1.8} />
+              <ArrowLeft
+                size={16}
+                strokeWidth={1.8}
+              />
+
               Back to jobs
             </Link>
           </div>
@@ -198,7 +245,11 @@ export default function JobDetailsPage() {
               href="/jobs"
               className={styles.backLink}
             >
-              <ArrowLeft size={16} strokeWidth={1.8} />
+              <ArrowLeft
+                size={16}
+                strokeWidth={1.8}
+              />
+
               Back to jobs
             </Link>
 
@@ -227,6 +278,7 @@ export default function JobDetailsPage() {
                           size={14}
                           strokeWidth={1.8}
                         />
+
                         {job.location}
                       </span>
                     )}
@@ -237,6 +289,7 @@ export default function JobDetailsPage() {
                           size={14}
                           strokeWidth={1.8}
                         />
+
                         {job.work_type}
                       </span>
                     )}
@@ -247,6 +300,7 @@ export default function JobDetailsPage() {
                           size={14}
                           strokeWidth={1.8}
                         />
+
                         Posted {formattedPostedDate}
                       </span>
                     )}
@@ -264,7 +318,11 @@ export default function JobDetailsPage() {
                     {Math.round(match.score)}%
                   </strong>
 
-                  <span className={styles.matchDescription}>
+                  <span
+                    className={
+                      styles.matchDescription
+                    }
+                  >
                     Based on your career profile
                   </span>
                 </div>
@@ -275,86 +333,173 @@ export default function JobDetailsPage() {
               <main className={styles.mainContent}>
                 <section className={styles.section}>
                   <div className={styles.sectionHeader}>
-                    <p className={styles.sectionEyebrow}>
+                    <p
+                      className={
+                        styles.sectionEyebrow
+                      }
+                    >
                       Job description
                     </p>
 
-                    <h2 className={styles.sectionTitle}>
+                    <h2
+                      className={
+                        styles.sectionTitle
+                      }
+                    >
                       About this opportunity
                     </h2>
                   </div>
 
                   {job.description ? (
-                    <div className={styles.description}>
+                    <div
+                      className={
+                        styles.description
+                      }
+                    >
                       {job.description
                         .split("\n")
-                        .map((paragraph, index) => (
-                          <p key={index}>
-                            {paragraph}
-                          </p>
-                        ))}
+                        .map(
+                          (
+                            paragraph,
+                            index,
+                          ) => (
+                            <p key={index}>
+                              {paragraph}
+                            </p>
+                          ),
+                        )}
                     </div>
                   ) : (
-                    <p className={styles.noData}>
-                      No job description is available for this
+                    <p
+                      className={
+                        styles.noData
+                      }
+                    >
+                      No job description is
+                      available for this
                       opportunity.
                     </p>
                   )}
                 </section>
 
-                {match && matchReasons.length > 0 && (
-                  <section className={styles.section}>
-                    <div className={styles.sectionHeader}>
-                      <p className={styles.sectionEyebrow}>
-                        Match analysis
-                      </p>
-
-                      <h2 className={styles.sectionTitle}>
-                        Why this job matches you
-                      </h2>
-                    </div>
-
-                    <div className={styles.reasonList}>
-                      {matchReasons.map((reason, index) => (
-                        <div
-                          key={`${match.id}-${index}`}
-                          className={styles.reasonItem}
+                {match &&
+                  matchReasons.length > 0 && (
+                    <section
+                      className={
+                        styles.section
+                      }
+                    >
+                      <div
+                        className={
+                          styles.sectionHeader
+                        }
+                      >
+                        <p
+                          className={
+                            styles.sectionEyebrow
+                          }
                         >
-                          <CheckCircle2
-                            size={17}
-                            strokeWidth={1.8}
-                          />
+                          Match analysis
+                        </p>
 
-                          <span>{reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
+                        <h2
+                          className={
+                            styles.sectionTitle
+                          }
+                        >
+                          Why this job matches
+                          you
+                        </h2>
+                      </div>
+
+                      <div
+                        className={
+                          styles.reasonList
+                        }
+                      >
+                        {matchReasons.map(
+                          (
+                            reason,
+                            index,
+                          ) => (
+                            <div
+                              key={`${match.id}-${index}`}
+                              className={
+                                styles.reasonItem
+                              }
+                            >
+                              <CheckCircle2
+                                size={17}
+                                strokeWidth={
+                                  1.8
+                                }
+                              />
+
+                              <span>
+                                {reason}
+                              </span>
+                            </div>
+                          ),
+                        )}
+                      </div>
+                    </section>
+                  )}
               </main>
 
-              <aside className={styles.sidebar}>
-                <section className={styles.detailsCard}>
-                  <h2 className={styles.cardTitle}>
+              <aside
+                className={styles.sidebar}
+              >
+                <section
+                  className={
+                    styles.detailsCard
+                  }
+                >
+                  <h2
+                    className={
+                      styles.cardTitle
+                    }
+                  >
                     Job details
                   </h2>
 
-                  <div className={styles.detailList}>
+                  <div
+                    className={
+                      styles.detailList
+                    }
+                  >
                     {salary && (
-                      <div className={styles.detailItem}>
-                        <div className={styles.detailIcon}>
+                      <div
+                        className={
+                          styles.detailItem
+                        }
+                      >
+                        <div
+                          className={
+                            styles.detailIcon
+                          }
+                        >
                           <Wallet
                             size={16}
-                            strokeWidth={1.8}
+                            strokeWidth={
+                              1.8
+                            }
                           />
                         </div>
 
                         <div>
-                          <span className={styles.detailLabel}>
+                          <span
+                            className={
+                              styles.detailLabel
+                            }
+                          >
                             Salary
                           </span>
 
-                          <strong className={styles.detailValue}>
+                          <strong
+                            className={
+                              styles.detailValue
+                            }
+                          >
                             {salary}
                           </strong>
                         </div>
@@ -362,20 +507,38 @@ export default function JobDetailsPage() {
                     )}
 
                     {job.location && (
-                      <div className={styles.detailItem}>
-                        <div className={styles.detailIcon}>
+                      <div
+                        className={
+                          styles.detailItem
+                        }
+                      >
+                        <div
+                          className={
+                            styles.detailIcon
+                          }
+                        >
                           <MapPin
                             size={16}
-                            strokeWidth={1.8}
+                            strokeWidth={
+                              1.8
+                            }
                           />
                         </div>
 
                         <div>
-                          <span className={styles.detailLabel}>
+                          <span
+                            className={
+                              styles.detailLabel
+                            }
+                          >
                             Location
                           </span>
 
-                          <strong className={styles.detailValue}>
+                          <strong
+                            className={
+                              styles.detailValue
+                            }
+                          >
                             {job.location}
                           </strong>
                         </div>
@@ -383,28 +546,54 @@ export default function JobDetailsPage() {
                     )}
 
                     {job.work_type && (
-                      <div className={styles.detailItem}>
-                        <div className={styles.detailIcon}>
+                      <div
+                        className={
+                          styles.detailItem
+                        }
+                      >
+                        <div
+                          className={
+                            styles.detailIcon
+                          }
+                        >
                           <Briefcase
                             size={16}
-                            strokeWidth={1.8}
+                            strokeWidth={
+                              1.8
+                            }
                           />
                         </div>
 
                         <div>
-                          <span className={styles.detailLabel}>
+                          <span
+                            className={
+                              styles.detailLabel
+                            }
+                          >
                             Work type
                           </span>
 
-                          <strong className={styles.detailValue}>
+                          <strong
+                            className={
+                              styles.detailValue
+                            }
+                          >
                             {job.work_type}
                           </strong>
                         </div>
                       </div>
                     )}
 
-                    <div className={styles.detailItem}>
-                      <div className={styles.detailIcon}>
+                    <div
+                      className={
+                        styles.detailItem
+                      }
+                    >
+                      <div
+                        className={
+                          styles.detailIcon
+                        }
+                      >
                         <Building2
                           size={16}
                           strokeWidth={1.8}
@@ -412,18 +601,34 @@ export default function JobDetailsPage() {
                       </div>
 
                       <div>
-                        <span className={styles.detailLabel}>
+                        <span
+                          className={
+                            styles.detailLabel
+                          }
+                        >
                           Company
                         </span>
 
-                        <strong className={styles.detailValue}>
+                        <strong
+                          className={
+                            styles.detailValue
+                          }
+                        >
                           {job.company}
                         </strong>
                       </div>
                     </div>
 
-                    <div className={styles.detailItem}>
-                      <div className={styles.detailIcon}>
+                    <div
+                      className={
+                        styles.detailItem
+                      }
+                    >
+                      <div
+                        className={
+                          styles.detailIcon
+                        }
+                      >
                         <ExternalLink
                           size={16}
                           strokeWidth={1.8}
@@ -431,25 +636,42 @@ export default function JobDetailsPage() {
                       </div>
 
                       <div>
-                        <span className={styles.detailLabel}>
+                        <span
+                          className={
+                            styles.detailLabel
+                          }
+                        >
                           Source
                         </span>
 
-                        <strong className={styles.detailValue}>
+                        <strong
+                          className={
+                            styles.detailValue
+                          }
+                        >
                           {job.source}
                         </strong>
                       </div>
                     </div>
                   </div>
 
-                  <div className={styles.actionButtons}>
+                  <div
+                    className={
+                      styles.actionButtons
+                    }
+                  >
                     <a
-                      href={job.application_url}
+                      href={
+                        job.application_url
+                      }
                       target="_blank"
                       rel="noreferrer"
-                      className={styles.applyButton}
+                      className={
+                        styles.applyButton
+                      }
                     >
                       Apply for this job
+
                       <ArrowRight
                         size={16}
                         strokeWidth={1.8}
@@ -458,8 +680,12 @@ export default function JobDetailsPage() {
 
                     <button
                       type="button"
-                      className={styles.saveButton}
-                      onClick={handleSaveToggle}
+                      className={
+                        styles.saveButton
+                      }
+                      onClick={
+                        handleSaveToggle
+                      }
                       disabled={saving}
                     >
                       <Bookmark
@@ -477,6 +703,56 @@ export default function JobDetailsPage() {
                         : isSaved
                           ? "Saved"
                           : "Save Job"}
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
+                        styles.saveButton
+                      }
+                      onClick={
+                        handleTrackApplication
+                      }
+                      disabled={
+                        applying ||
+                        isApplied
+                      }
+                    >
+                      {applying ? (
+                        <>
+                          <LoaderCircle
+                            size={18}
+                            className={
+                              styles.spinner
+                            }
+                          />
+
+                          Tracking...
+                        </>
+                      ) : isApplied ? (
+                        <>
+                          <Check
+                            size={18}
+                            strokeWidth={
+                              2
+                            }
+                          />
+
+                          Application
+                          Tracked
+                        </>
+                      ) : (
+                        <>
+                          <BriefcaseBusiness
+                            size={18}
+                            strokeWidth={
+                              1.8
+                            }
+                          />
+
+                          Track Application
+                        </>
+                      )}
                     </button>
                   </div>
                 </section>
