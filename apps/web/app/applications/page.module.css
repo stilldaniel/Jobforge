@@ -436,6 +436,96 @@
   transform: translateY(-1px);
 }
 
+.statusEditor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px;
+  border: 1px solid #e8e1ee;
+  border-radius: 10px;
+  background: #faf8fc;
+}
+
+.statusSelect {
+  min-width: 145px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #ddd4e4;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #2b2330;
+  font-size: 12px;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.statusSelect:focus {
+  border-color: #7b34a3;
+  box-shadow: 0 0 0 3px rgba(123, 52, 163, 0.08);
+}
+
+.confirmButton,
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.confirmButton {
+  border: 1px solid #7b34a3;
+  background: #7b34a3;
+  color: #ffffff;
+}
+
+.confirmButton:hover:not(:disabled) {
+  background: #682a8b;
+  border-color: #682a8b;
+}
+
+.cancelButton {
+  border: 1px solid #ddd4e4;
+  background: #ffffff;
+  color: #5f5665;
+}
+
+.cancelButton:hover:not(:disabled) {
+  background: #f3eef6;
+  border-color: #cfc3d6;
+}
+
+.confirmButton:disabled,
+.cancelButton:disabled,
+.statusSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .statusEditor {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .statusSelect,
+  .confirmButton,
+  .cancelButton {
+    width: 100%;
+  }
+}
+
 /* =========================================================
    ANIMATION
    ========================================================= */

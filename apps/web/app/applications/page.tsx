@@ -8,16 +8,22 @@ import {
   Briefcase,
   Building2,
   CalendarDays,
+  Check,
   CircleAlert,
   LoaderCircle,
   MapPin,
   Trash2,
   Wallet,
   RefreshCw,
+  X,
 } from "lucide-react";
 
 import AppShell from "@/components/layout/AppShell";
-import { getApplications } from "@/lib/api/saved-jobs";
+import {
+  getApplications,
+  updateApplication,
+  deleteApplication,
+} from "@/lib/api/saved-jobs";
 
 import type { Application } from "@/types/api";
 
@@ -27,12 +33,36 @@ const USER_ID = Number(
   process.env.NEXT_PUBLIC_DEV_USER_ID || "5",
 );
 
+const APPLICATION_STATUSES = [
+  "applied",
+  "interview",
+  "offer",
+  "rejected",
+  "withdrawn",
+] as const;
+
+type ApplicationStatus =
+  (typeof APPLICATION_STATUSES)[number];
+
 export default function ApplicationsPage() {
-  const [applications, setApplications] = useState<Application[]>(
-    [],
-  );
+  const [applications, setApplications] = useState<
+    Application[]
+  >([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingApplicationId, setEditingApplicationId] =
+    useState<number | null>(null);
+
+  const [selectedStatus, setSelectedStatus] =
+    useState<ApplicationStatus>("applied");
+
+  const [updatingApplicationId, setUpdatingApplicationId] =
+    useState<number | null>(null);
+
+  const [deletingApplicationId, setDeletingApplicationId] =
+    useState<number | null>(null);
 
   useEffect(() => {
     async function loadApplications() {
@@ -94,18 +124,124 @@ export default function ApplicationsPage() {
     return status.replace(/_/g, " ");
   };
 
+  const startStatusEdit = (
+    application: Application,
+  ) => {
+    setEditingApplicationId(application.id);
+    setSelectedStatus(
+      APPLICATION_STATUSES.includes(
+        application.status as ApplicationStatus,
+      )
+        ? (application.status as ApplicationStatus)
+        : "applied",
+    );
+  };
+
+  const cancelStatusEdit = () => {
+    setEditingApplicationId(null);
+    setSelectedStatus("applied");
+  };
+
+  const handleUpdateStatus = async (
+    application: Application,
+  ) => {
+    if (updatingApplicationId !== null) {
+      return;
+    }
+
+    try {
+      setUpdatingApplicationId(application.id);
+
+      const updatedApplication =
+        await updateApplication(
+          USER_ID,
+          application.job_id,
+          {
+            status: selectedStatus,
+          },
+        );
+
+      setApplications((currentApplications) =>
+        currentApplications.map((currentApplication) =>
+          currentApplication.id === updatedApplication.id
+            ? updatedApplication
+            : currentApplication,
+        ),
+      );
+
+      setEditingApplicationId(null);
+    } catch (err) {
+      console.error(
+        "Failed to update application status:",
+        err,
+      );
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
+
+  const handleDeleteApplication = async (
+    application: Application,
+  ) => {
+    if (deletingApplicationId !== null) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove your application for ${application.job.title}?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingApplicationId(application.id);
+
+      await deleteApplication(
+        USER_ID,
+        application.job_id,
+      );
+
+      setApplications((currentApplications) =>
+        currentApplications.filter(
+          (currentApplication) =>
+            currentApplication.id !== application.id,
+        ),
+      );
+
+      if (
+        editingApplicationId === application.id
+      ) {
+        setEditingApplicationId(null);
+      }
+    } catch (err) {
+      console.error(
+        "Failed to delete application:",
+        err,
+      );
+    } finally {
+      setDeletingApplicationId(null);
+    }
+  };
+
   return (
     <AppShell>
       <div className={styles.page}>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>Your applications</p>
+            <p className={styles.eyebrow}>
+              Your applications
+            </p>
 
-            <h1 className={styles.title}>Applications</h1>
+            <h1 className={styles.title}>
+              Applications
+            </h1>
 
             <p className={styles.subtitle}>
-              Track the jobs you've applied to and follow each
-              opportunity through your application process.
+              Track the jobs you've applied to and follow
+              each opportunity through your application
+              process.
             </p>
           </div>
 
@@ -133,7 +269,9 @@ export default function ApplicationsPage() {
               className={styles.spinner}
             />
 
-            <span>Loading your applications...</span>
+            <span>
+              Loading your applications...
+            </span>
           </div>
         ) : error ? (
           <div className={styles.errorState}>
@@ -141,7 +279,9 @@ export default function ApplicationsPage() {
               <CircleAlert size={22} />
             </div>
 
-            <h2>Unable to load applications</h2>
+            <h2>
+              Unable to load applications
+            </h2>
 
             <p>{error}</p>
           </div>
@@ -157,8 +297,8 @@ export default function ApplicationsPage() {
             <h2>No applications yet</h2>
 
             <p>
-              When you apply to a job, add it to JobForge so you
-              can keep track of its progress here.
+              When you apply to a job, add it to JobForge
+              so you can keep track of its progress here.
             </p>
 
             <Link
@@ -202,41 +342,84 @@ export default function ApplicationsPage() {
                   job.salary_max,
                 );
 
-                const appliedDate = formatAppliedDate(
-                  application.applied_at,
-                );
+                const appliedDate =
+                  formatAppliedDate(
+                    application.applied_at,
+                  );
+
+                const isEditing =
+                  editingApplicationId ===
+                  application.id;
+
+                const isUpdating =
+                  updatingApplicationId ===
+                  application.id;
+
+                const isDeleting =
+                  deletingApplicationId ===
+                  application.id;
 
                 return (
                   <article
                     key={application.id}
                     className={styles.applicationCard}
                   >
-                    <div className={styles.applicationIcon}>
+                    <div
+                      className={
+                        styles.applicationIcon
+                      }
+                    >
                       <Building2
                         size={21}
                         strokeWidth={1.8}
                       />
                     </div>
 
-                    <div className={styles.applicationContent}>
-                      <div className={styles.applicationHeader}>
-                        <div className={styles.applicationIdentity}>
+                    <div
+                      className={
+                        styles.applicationContent
+                      }
+                    >
+                      <div
+                        className={
+                          styles.applicationHeader
+                        }
+                      >
+                        <div
+                          className={
+                            styles.applicationIdentity
+                          }
+                        >
                           <p className={styles.company}>
                             {job.company}
                           </p>
 
                           <Link
                             href={`/jobs/${job.id}`}
-                            className={styles.jobTitleLink}
+                            className={
+                              styles.jobTitleLink
+                            }
                           >
-                            <h3 className={styles.jobTitle}>
+                            <h3
+                              className={
+                                styles.jobTitle
+                              }
+                            >
                               {job.title}
                             </h3>
                           </Link>
                         </div>
 
-                        <div className={styles.statusBadge}>
-                          <span className={styles.statusDot} />
+                        <div
+                          className={
+                            styles.statusBadge
+                          }
+                        >
+                          <span
+                            className={
+                              styles.statusDot
+                            }
+                          />
 
                           {getStatusLabel(
                             application.status,
@@ -292,7 +475,11 @@ export default function ApplicationsPage() {
 
                       {application.notes && (
                         <div className={styles.notes}>
-                          <span className={styles.notesLabel}>
+                          <span
+                            className={
+                              styles.notesLabel
+                            }
+                          >
                             Notes
                           </span>
 
@@ -300,10 +487,97 @@ export default function ApplicationsPage() {
                         </div>
                       )}
 
+                      {isEditing && (
+                        <div
+                          className={
+                            styles.statusEditor
+                          }
+                        >
+                          <select
+                            value={selectedStatus}
+                            onChange={(event) =>
+                              setSelectedStatus(
+                                event.target
+                                  .value as ApplicationStatus,
+                              )
+                            }
+                            className={
+                              styles.statusSelect
+                            }
+                            disabled={isUpdating}
+                          >
+                            {APPLICATION_STATUSES.map(
+                              (status) => (
+                                <option
+                                  key={status}
+                                  value={status}
+                                >
+                                  {getStatusLabel(
+                                    status,
+                                  )}
+                                </option>
+                              ),
+                            )}
+                          </select>
+
+                          <button
+                            type="button"
+                            className={
+                              styles.confirmButton
+                            }
+                            onClick={() =>
+                              handleUpdateStatus(
+                                application,
+                              )
+                            }
+                            disabled={isUpdating}
+                          >
+                            {isUpdating ? (
+                              <>
+                                <LoaderCircle
+                                  size={14}
+                                  className={
+                                    styles.spinner
+                                  }
+                                />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Check
+                                  size={14}
+                                  strokeWidth={1.8}
+                                />
+                                Save status
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            className={
+                              styles.cancelButton
+                            }
+                            onClick={
+                              cancelStatusEdit
+                            }
+                            disabled={isUpdating}
+                          >
+                            <X
+                              size={14}
+                              strokeWidth={1.8}
+                            />
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
                       <div className={styles.actions}>
                         <Link
                           href={`/jobs/${job.id}`}
-                          className={styles.viewButton}
+                          className={
+                            styles.viewButton
+                          }
                         >
                           View job
 
@@ -313,28 +587,64 @@ export default function ApplicationsPage() {
                           />
                         </Link>
 
+                        {!isEditing && (
+                          <button
+                            type="button"
+                            className={
+                              styles.updateButton
+                            }
+                            onClick={() =>
+                              startStatusEdit(
+                                application,
+                              )
+                            }
+                            disabled={
+                              isDeleting ||
+                              updatingApplicationId !==
+                                null
+                            }
+                          >
+                            <RefreshCw
+                              size={15}
+                              strokeWidth={1.8}
+                            />
+
+                            Update status
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          className={styles.updateButton}
+                          className={
+                            styles.deleteButton
+                          }
+                          onClick={() =>
+                            handleDeleteApplication(
+                              application,
+                            )
+                          }
+                          disabled={
+                            isDeleting ||
+                            isUpdating
+                          }
                         >
-                          <RefreshCw
-                            size={15}
-                            strokeWidth={1.8}
-                          />
+                          {isDeleting ? (
+                            <LoaderCircle
+                              size={15}
+                              className={
+                                styles.spinner
+                              }
+                            />
+                          ) : (
+                            <Trash2
+                              size={15}
+                              strokeWidth={1.8}
+                            />
+                          )}
 
-                          Update status
-                        </button>
-
-                        <button
-                          type="button"
-                          className={styles.deleteButton}
-                        >
-                          <Trash2
-                            size={15}
-                            strokeWidth={1.8}
-                          />
-
-                          Delete
+                          {isDeleting
+                            ? "Deleting..."
+                            : "Delete"}
                         </button>
                       </div>
                     </div>
