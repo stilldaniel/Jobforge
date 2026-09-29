@@ -171,6 +171,30 @@
   padding: 32px 34px 48px;
 }
 
+.notificationButton {
+  position: relative;
+}
+
+.notificationBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #ffffff;
+  border-radius: 999px;
+  background: #7b34a3;
+  color: #ffffff;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.1px;
+}
+
 @media (max-width: 900px) {
   .sidebar {
     width: 210px;
