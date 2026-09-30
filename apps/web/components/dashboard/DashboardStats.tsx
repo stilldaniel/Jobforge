@@ -1,8 +1,10 @@
 import {
   Bell,
   BriefcaseBusiness,
+  CheckCircle2,
+  MessageSquareText,
   Sparkles,
-  UserRound,
+  Trophy,
 } from "lucide-react";
 
 import styles from "./DashboardStats.module.css";
@@ -10,15 +12,19 @@ import styles from "./DashboardStats.module.css";
 interface DashboardStatsProps {
   totalMatches: number;
   highMatches: number;
+  applications: number;
+  interviews: number;
+  offers: number;
   unreadNotifications: number;
-  profileComplete: boolean;
 }
 
 export default function DashboardStats({
   totalMatches,
   highMatches,
+  applications,
+  interviews,
+  offers,
   unreadNotifications,
-  profileComplete,
 }: DashboardStatsProps) {
   const stats = [
     {
@@ -34,18 +40,28 @@ export default function DashboardStats({
       icon: Sparkles,
     },
     {
+      label: "Applications",
+      value: applications,
+      description: "Jobs you've applied to",
+      icon: MessageSquareText,
+    },
+    {
+      label: "Interviews",
+      value: interviews,
+      description: "Applications in interview stage",
+      icon: CheckCircle2,
+    },
+    {
+      label: "Offers",
+      value: offers,
+      description: "Applications with offers",
+      icon: Trophy,
+    },
+    {
       label: "Unread Notifications",
       value: unreadNotifications,
       description: "Notifications waiting for you",
       icon: Bell,
-    },
-    {
-      label: "Career Profile",
-      value: profileComplete ? "Ready" : "Setup",
-      description: profileComplete
-        ? "Your profile is available"
-        : "Complete your profile",
-      icon: UserRound,
     },
   ];
 

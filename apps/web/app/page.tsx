@@ -12,8 +12,10 @@ import RecentNotifications from "@/components/dashboard/RecentNotifications";
 import { getCareerProfile } from "@/lib/api/career-profile";
 import { getUserMatches } from "@/lib/api/matches";
 import { getUserNotifications } from "@/lib/api/notiications";
+import { getApplications } from "@/lib/api/saved-jobs";
 
 import type {
+  Application,
   CareerProfile,
   MatchedJob,
   Notification,
@@ -22,13 +24,16 @@ import type {
 import styles from "./page.module.css";
 
 const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "3",
+  process.env.NEXT_PUBLIC_DEV_USER_ID || "5",
 );
 
 export default function HomePage() {
   const [matches, setMatches] = useState<MatchedJob[]>([]);
   const [notifications, setNotifications] = useState<
     Notification[]
+  >([]);
+  const [applications, setApplications] = useState<
+    Application[]
   >([]);
   const [profile, setProfile] =
     useState<CareerProfile | null>(null);
@@ -42,14 +47,19 @@ export default function HomePage() {
         setLoading(true);
         setError(null);
 
-        const [matchesResult, notificationsResult] =
-          await Promise.all([
-            getUserMatches(USER_ID),
-            getUserNotifications(USER_ID),
-          ]);
+        const [
+          matchesResult,
+          notificationsResult,
+          applicationsResult,
+        ] = await Promise.all([
+          getUserMatches(USER_ID),
+          getUserNotifications(USER_ID),
+          getApplications(USER_ID),
+        ]);
 
         setMatches(matchesResult);
         setNotifications(notificationsResult);
+        setApplications(applicationsResult);
 
         try {
           const profileResult =
@@ -81,7 +91,17 @@ export default function HomePage() {
     (notification) => !notification.read_at,
   ).length;
 
-  const topMatches = matches.slice(0, 5);
+  const interviews = applications.filter(
+    (application) => application.status === "interview",
+  ).length;
+
+  const offers = applications.filter(
+    (application) => application.status === "offer",
+  ).length;
+
+  const topMatches = matches
+    .filter((match) => match.score >= 91)
+    .slice(0, 5);
 
   return (
     <AppShell>
@@ -100,9 +120,15 @@ export default function HomePage() {
             </p>
           </div>
 
-          <Link href="/jobs" className={styles.jobsButton}>
+          <Link
+            href="/jobs"
+            className={styles.jobsButton}
+          >
             Explore jobs
-            <ArrowRight size={16} strokeWidth={1.8} />
+            <ArrowRight
+              size={16}
+              strokeWidth={1.8}
+            />
           </Link>
         </section>
 
@@ -112,11 +138,16 @@ export default function HomePage() {
               size={20}
               className={styles.spinner}
             />
-            <span>Loading your dashboard...</span>
+
+            <span>
+              Loading your dashboard...
+            </span>
           </div>
         ) : error ? (
           <div className={styles.error}>
-            <strong>Unable to load your dashboard.</strong>
+            <strong>
+              Unable to load your dashboard.
+            </strong>
 
             <p>{error}</p>
           </div>
@@ -125,19 +156,33 @@ export default function HomePage() {
             <DashboardStats
               totalMatches={matches.length}
               highMatches={highMatches}
+              applications={applications.length}
               unreadNotifications={unreadNotifications}
-              profileComplete={profile !== null}
+              interviews={interviews}
+              offers={offers}
             />
 
             <div className={styles.contentGrid}>
-              <section className={styles.matchesSection}>
-                <div className={styles.sectionHeader}>
+              <section
+                className={styles.matchesSection}
+              >
+                <div
+                  className={styles.sectionHeader}
+                >
                   <div>
-                    <p className={styles.sectionEyebrow}>
+                    <p
+                      className={
+                        styles.sectionEyebrow
+                      }
+                    >
                       Recommendations
                     </p>
 
-                    <h2 className={styles.sectionTitle}>
+                    <h2
+                      className={
+                        styles.sectionTitle
+                      }
+                    >
                       High-quality matches
                     </h2>
                   </div>
@@ -147,6 +192,7 @@ export default function HomePage() {
                     className={styles.viewAll}
                   >
                     View all
+
                     <ArrowRight
                       size={15}
                       strokeWidth={1.8}
@@ -156,11 +202,14 @@ export default function HomePage() {
 
                 {topMatches.length === 0 ? (
                   <div className={styles.empty}>
-                    <h3>No matches yet</h3>
+                    <h3>
+                      No high-quality matches yet
+                    </h3>
 
                     <p>
-                      Once jobs are matched against your
-                      career profile, they will appear here.
+                      Once jobs reach a 91% or higher
+                      match score, they will appear
+                      here.
                     </p>
 
                     {!profile && (
@@ -170,7 +219,9 @@ export default function HomePage() {
                     )}
                   </div>
                 ) : (
-                  <div className={styles.matchList}>
+                  <div
+                    className={styles.matchList}
+                  >
                     {topMatches.map((match) => (
                       <MatchCard
                         key={match.id}
