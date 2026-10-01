@@ -8,6 +8,7 @@ import AppShell from "@/components/layout/AppShell";
 import DashboardStats from "@/components/dashboard/DashboardStats";
 import MatchCard from "@/components/dashboard/MatchCard";
 import RecentNotifications from "@/components/dashboard/RecentNotifications";
+import ApplicationPipeline from "@/components/dashboard/ApplicationPipeline";
 
 import { getCareerProfile } from "@/lib/api/career-profile";
 import { getUserMatches } from "@/lib/api/matches";
@@ -160,6 +161,10 @@ export default function HomePage() {
               unreadNotifications={unreadNotifications}
               interviews={interviews}
               offers={offers}
+            />
+            
+            <ApplicationPipeline
+              applications={applications}
             />
 
             <div className={styles.contentGrid}>
