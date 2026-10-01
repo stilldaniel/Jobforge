@@ -162,7 +162,7 @@ export default function HomePage() {
               interviews={interviews}
               offers={offers}
             />
-            
+
             <ApplicationPipeline
               applications={applications}
             />
@@ -239,6 +239,15 @@ export default function HomePage() {
 
               <RecentNotifications
                 notifications={notifications}
+                onNotificationRead={(updatedNotification) => {
+                  setNotifications((currentNotifications) =>
+                    currentNotifications.map((notification) =>
+                      notification.id === updatedNotification.id
+                        ? updatedNotification
+                        : notification,
+                    ),
+                  );
+                }}
               />
             </div>
           </>
