@@ -68,6 +68,31 @@ const EMPTY_FORM: FormState = {
   maximum_salary: "",
 };
 
+function formatSkillsForForm(
+  skills: string | null,
+): string {
+  if (!skills) {
+    return "";
+  }
+
+  try {
+    const parsed = JSON.parse(skills);
+
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter(
+          (skill): skill is string =>
+            typeof skill === "string",
+        )
+        .join(", ");
+    }
+  } catch {
+    // Fall back to the raw value if it isn't JSON.
+  }
+
+  return skills;
+}
+
 function profileToForm(
   profile: CareerProfile,
 ): FormState {
@@ -80,7 +105,7 @@ function profileToForm(
 
     summary: profile.summary ?? "",
 
-    skills: profile.skills ?? "",
+    skills: formatSkillsForForm(profile.skills),
 
     candidate_location:
       profile.candidate_location ?? "",
@@ -182,8 +207,14 @@ export default function ProfilePage() {
         summary:
           form.summary.trim() || null,
 
-        skills:
-          form.skills.trim() || null,
+        skills: form.skills.trim()
+          ? JSON.stringify(
+              form.skills
+                .split(",")
+                .map((skill) => skill.trim())
+                .filter(Boolean),
+            )
+          : null,
 
         candidate_location:
           form.candidate_location.trim() || null,
