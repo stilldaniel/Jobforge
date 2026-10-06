@@ -16,6 +16,13 @@ WORK_TYPE_WEIGHT = 10
 LOCATION_WEIGHT = 10
 SALARY_WEIGHT = 10
 
+# Converts a profile's salary preference to the yearly amounts that
+# job sources report.
+SALARY_PERIOD_MULTIPLIERS = {
+    "year": 1,
+    "month": 12,
+}
+
 
 # ============================================================
 # NORMALIZATION / ALIASES
@@ -782,19 +789,6 @@ def _salary_score(
             False,
         )
 
-    # Real job sources report a currency and period (normalised to
-    # yearly). Career profiles don't record either yet, so a yearly USD
-    # figure can't be compared with, say, a monthly NGN preference.
-    if (
-        getattr(job, "salary_currency", None)
-        or getattr(job, "salary_period", None)
-    ):
-        return (
-            None,
-            "Job salary could not be compared with your preference",
-            False,
-        )
-
     try:
         minimum_salary = (
             float(minimum_salary)
@@ -825,6 +819,62 @@ def _salary_score(
             None,
             "Salary information could not be evaluated",
             False,
+        )
+
+    # Real job sources report a currency, with amounts normalised to
+    # yearly. Compare only in the same currency (no exchange rates), with
+    # the profile's preference converted to yearly.
+    job_currency = (getattr(job, "salary_currency", None) or "").upper()
+    job_period = getattr(job, "salary_period", None)
+
+    if job_currency or job_period:
+        profile_currency = (
+            getattr(profile, "salary_currency", None) or ""
+        ).upper()
+
+        if not profile_currency or not job_currency:
+            return (
+                None,
+                "Job salary could not be compared with your preference",
+                False,
+            )
+
+        if profile_currency != job_currency:
+            return (
+                None,
+                f"Job salary is in {job_currency}, "
+                f"your preference is in {profile_currency}",
+                False,
+            )
+
+        profile_multiplier = SALARY_PERIOD_MULTIPLIERS.get(
+            getattr(profile, "salary_period", None) or "year",
+            1,
+        )
+        job_multiplier = SALARY_PERIOD_MULTIPLIERS.get(
+            job_period or "year",
+            1,
+        )
+
+        minimum_salary = (
+            minimum_salary * profile_multiplier
+            if minimum_salary is not None
+            else None
+        )
+        maximum_salary = (
+            maximum_salary * profile_multiplier
+            if maximum_salary is not None
+            else None
+        )
+        salary_min = (
+            salary_min * job_multiplier
+            if salary_min is not None
+            else None
+        )
+        salary_max = (
+            salary_max * job_multiplier
+            if salary_max is not None
+            else None
         )
 
     # Job is completely below candidate minimum.

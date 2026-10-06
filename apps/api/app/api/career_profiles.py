@@ -1,13 +1,43 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.career_profile import CareerProfile
 from app.models.user import User
+from app.services.match_jobs import generate_job_matches
 from app.schemas.career_profile import (
     CareerProfileCreate,
     CareerProfileResponse,
 )
+
+
+logger = logging.getLogger(__name__)
+
+
+def rescore_matches(
+    db: Session,
+    user_id: int,
+) -> None:
+    """
+    Re-score every job against the saved profile, so existing matches
+    reflect the change straight away. No notifications are sent: a
+    profile edit shouldn't email about jobs found earlier.
+    """
+
+    try:
+        generate_job_matches(
+            user_id=user_id,
+            db=db,
+        )
+    except Exception:
+        db.rollback()
+
+        logger.exception(
+            "Re-scoring matches failed after profile save | user_id=%s",
+            user_id,
+        )
 
 
 router = APIRouter(
@@ -52,11 +82,16 @@ def create_career_profile(
         preferred_location=profile_data.preferred_location,
         minimum_salary=profile_data.minimum_salary,
         maximum_salary=profile_data.maximum_salary,
+        salary_currency=profile_data.salary_currency,
+        salary_period=profile_data.salary_period,
         candidate_location=profile_data.candidate_location,
     )
 
     db.add(profile)
     db.commit()
+    db.refresh(profile)
+
+    rescore_matches(db, user_id)
     db.refresh(profile)
 
     return profile
@@ -109,8 +144,13 @@ def update_career_profile(
     profile.preferred_location = profile_data.preferred_location
     profile.minimum_salary = profile_data.minimum_salary
     profile.maximum_salary = profile_data.maximum_salary
+    profile.salary_currency = profile_data.salary_currency
+    profile.salary_period = profile_data.salary_period
 
     db.commit()
+    db.refresh(profile)
+
+    rescore_matches(db, user_id)
     db.refresh(profile)
 
     return profile

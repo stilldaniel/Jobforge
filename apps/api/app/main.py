@@ -1,3 +1,5 @@
+import logging
+import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -16,6 +18,29 @@ from app.api.applications import router as applications_router
 
 
 load_dotenv()
+
+
+def configure_logging() -> None:
+    """
+    Show JobForge's own log messages (scan results, emails sent) in the
+    server output. LOG_LEVEL sets the level; defaults to INFO.
+    """
+
+    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    logging.basicConfig(
+        level=level,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    # Libraries that log every HTTP request or scheduler tick at INFO.
+    for noisy in ("httpx", "httpcore", "apscheduler"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+configure_logging()
 
 
 @asynccontextmanager

@@ -308,3 +308,89 @@ def test_profile_without_skills_loses_skill_points():
 
     assert score <= 90
     assert "Candidate skills are missing" in reasons
+
+
+# ============================================================
+# SALARY CURRENCY AND PERIOD
+# ============================================================
+
+def make_real_job(**overrides):
+    # Real sources report yearly salaries with a currency.
+    data = {
+        "salary_min": 50000,
+        "salary_max": 60000,
+        "salary_currency": "USD",
+        "salary_period": "year",
+    }
+    data.update(overrides)
+    return make_job(**data)
+
+
+def test_monthly_preference_is_compared_with_yearly_salary():
+    # $3,000-$5,000 a month is $36,000-$60,000 a year.
+    profile = make_profile(
+        minimum_salary=3000,
+        maximum_salary=5000,
+        salary_currency="USD",
+        salary_period="month",
+    )
+
+    _, reasons = calculate_match_score(profile, make_real_job())
+
+    assert "Job salary fits candidate salary preference" in reasons
+
+
+def test_salary_below_monthly_minimum_is_ineligible():
+    profile = make_profile(
+        minimum_salary=5000,
+        maximum_salary=8000,
+        salary_currency="USD",
+        salary_period="month",
+    )
+
+    score, reasons = calculate_match_score(
+        profile,
+        make_real_job(salary_min=30000, salary_max=40000),
+    )
+
+    assert score <= 49
+    assert "Job salary is below candidate minimum" in reasons
+
+
+def test_yearly_preference_is_compared_directly():
+    profile = make_profile(
+        minimum_salary=70000,
+        maximum_salary=90000,
+        salary_currency="USD",
+        salary_period="year",
+    )
+
+    score, reasons = calculate_match_score(profile, make_real_job())
+
+    assert score <= 49
+    assert "Job salary is below candidate minimum" in reasons
+
+
+def test_different_currencies_are_not_compared():
+    profile = make_profile(
+        minimum_salary=1000000,
+        salary_currency="NGN",
+        salary_period="month",
+    )
+
+    score, reasons = calculate_match_score(profile, make_real_job())
+
+    assert "Job salary is in USD, your preference is in NGN" in reasons
+    assert score > 90
+
+
+def test_salary_not_compared_without_profile_currency():
+    _, reasons = calculate_match_score(
+        make_profile(salary_currency=None),
+        make_real_job(),
+    )
+
+    assert (
+        "Job salary could not be compared with your preference"
+        in reasons
+    )

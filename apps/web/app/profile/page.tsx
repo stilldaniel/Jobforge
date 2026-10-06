@@ -52,7 +52,24 @@ interface FormState {
   preferred_location: string;
   minimum_salary: string;
   maximum_salary: string;
+  salary_currency: string;
+  salary_period: "month" | "year";
 }
+
+// Job salaries are compared only in the same currency.
+const SALARY_CURRENCIES = [
+  { value: "", label: "Not set" },
+  { value: "USD", label: "USD – US dollar" },
+  { value: "EUR", label: "EUR – Euro" },
+  { value: "GBP", label: "GBP – British pound" },
+  { value: "CAD", label: "CAD – Canadian dollar" },
+  { value: "AUD", label: "AUD – Australian dollar" },
+  { value: "NGN", label: "NGN – Nigerian naira" },
+  { value: "GHS", label: "GHS – Ghanaian cedi" },
+  { value: "KES", label: "KES – Kenyan shilling" },
+  { value: "ZAR", label: "ZAR – South African rand" },
+  { value: "INR", label: "INR – Indian rupee" },
+];
 
 const EMPTY_FORM: FormState = {
   professional_title: "",
@@ -64,6 +81,8 @@ const EMPTY_FORM: FormState = {
   preferred_location: "",
   minimum_salary: "",
   maximum_salary: "",
+  salary_currency: "",
+  salary_period: "month",
 };
 
 function formatSkillsForForm(
@@ -119,6 +138,10 @@ function profileToForm(
 
     maximum_salary:
       profile.maximum_salary?.toString() ?? "",
+
+    salary_currency: profile.salary_currency ?? "",
+
+    salary_period: profile.salary_period ?? "month",
   };
 }
 
@@ -232,6 +255,13 @@ export default function ProfilePage() {
           form.maximum_salary.trim()
             ? Number(form.maximum_salary)
             : null,
+
+        salary_currency:
+          form.salary_currency || null,
+
+        salary_period: form.salary_currency
+          ? form.salary_period
+          : null,
       };
 
       const result = profile
@@ -249,8 +279,8 @@ export default function ProfilePage() {
 
       setSuccess(
         profile
-          ? "Your career profile has been updated."
-          : "Your career profile has been created.",
+          ? "Your career profile has been updated and your job matches re-scored."
+          : "Your career profile has been created and your job matches scored.",
       );
     } catch (err) {
       setError(
@@ -553,8 +583,8 @@ export default function ProfilePage() {
                 />
 
                 <span className={styles.hint}>
-                  Enter the amount in the same currency
-                  used by the jobs you target.
+                  In the currency and period you choose
+                  below.
                 </span>
               </div>
 
@@ -577,6 +607,58 @@ export default function ProfilePage() {
                   }
                   placeholder="e.g. 6000"
                 />
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="salary_currency">
+                  Salary currency
+                </label>
+
+                <select
+                  id="salary_currency"
+                  value={form.salary_currency}
+                  onChange={(event) =>
+                    updateField(
+                      "salary_currency",
+                      event.target.value,
+                    )
+                  }
+                >
+                  {SALARY_CURRENCIES.map((currency) => (
+                    <option
+                      key={currency.value}
+                      value={currency.value}
+                    >
+                      {currency.label}
+                    </option>
+                  ))}
+                </select>
+
+                <span className={styles.hint}>
+                  Jobs paying in a different currency
+                  aren&apos;t scored on salary.
+                </span>
+              </div>
+
+              <div className={styles.field}>
+                <label htmlFor="salary_period">
+                  Salary period
+                </label>
+
+                <select
+                  id="salary_period"
+                  value={form.salary_period}
+                  disabled={!form.salary_currency}
+                  onChange={(event) =>
+                    updateField(
+                      "salary_period",
+                      event.target.value,
+                    )
+                  }
+                >
+                  <option value="month">Per month</option>
+                  <option value="year">Per year</option>
+                </select>
               </div>
             </div>
           </section>

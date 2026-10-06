@@ -25,6 +25,8 @@ export interface CareerProfile {
   preferred_location: string | null;
   minimum_salary: number | null;
   maximum_salary: number | null;
+  salary_currency: string | null;
+  salary_period: "month" | "year" | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +41,8 @@ export interface CareerProfileCreate {
   preferred_location?: string | null;
   minimum_salary?: number | null;
   maximum_salary?: number | null;
+  salary_currency?: string | null;
+  salary_period?: "month" | "year" | null;
 }
 
 export interface Job {

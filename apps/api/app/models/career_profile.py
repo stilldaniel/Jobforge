@@ -65,6 +65,18 @@ class CareerProfile(Base):
         nullable=True,
     )
 
+    # ISO 4217 code (e.g. "USD") and "month" or "year", so salary
+    # preferences can be compared with job salaries.
+    salary_currency: Mapped[str | None] = mapped_column(
+        String(3),
+        nullable=True,
+    )
+
+    salary_period: Mapped[str | None] = mapped_column(
+        String(10),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
