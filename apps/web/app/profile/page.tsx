@@ -325,7 +325,7 @@ export default function ProfilePage() {
 
             <p className={styles.subtitle}>
               Your profile helps JobForge understand
-              what you're looking for and match you
+              what you&apos;re looking for and match you
               with relevant opportunities.
             </p>
           </div>
@@ -583,8 +583,8 @@ export default function ProfilePage() {
                 />
 
                 <span className={styles.hint}>
-                  In the currency and period you choose
-                  below.
+                  Shown next to each job&apos;s pay for
+                  reference. Pay never filters out a job.
                 </span>
               </div>
 
@@ -635,8 +635,8 @@ export default function ProfilePage() {
                 </select>
 
                 <span className={styles.hint}>
-                  Jobs paying in a different currency
-                  aren&apos;t scored on salary.
+                  Pay is compared only for jobs in this
+                  currency.
                 </span>
               </div>
 

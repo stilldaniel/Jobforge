@@ -219,7 +219,7 @@ export default function ApplicationsPage() {
             </h1>
 
             <p className={styles.subtitle}>
-              Track the jobs you've applied to and follow
+              Track the jobs you&apos;ve applied to and follow
               each opportunity through your application
               process.
             </p>
@@ -301,7 +301,7 @@ export default function ApplicationsPage() {
                 </p>
 
                 <h2 className={styles.sectionTitle}>
-                  Jobs you've applied to
+                  Jobs you&apos;ve applied to
                 </h2>
               </div>
 

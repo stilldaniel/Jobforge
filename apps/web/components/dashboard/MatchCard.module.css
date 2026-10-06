@@ -125,10 +125,21 @@
   cursor: pointer;
 }
 
-.saveButton:hover {
+.saveButton:hover:not(:disabled) {
   background: #f7f4fc;
   color: #6d28d9;
   border-color: #d9ccef;
+}
+
+.saveButtonActive {
+  background: #f7f4fc;
+  color: #6d28d9;
+  border-color: #d9ccef;
+}
+
+.saveButton:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 .applyButton {

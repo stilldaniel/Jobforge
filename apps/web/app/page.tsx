@@ -16,8 +16,13 @@ import ApplicationPipeline from "@/components/dashboard/ApplicationPipeline";
 
 import { getCareerProfile } from "@/lib/api/career-profile";
 import { getUserMatches } from "@/lib/api/matches";
-import { getUserNotifications } from "@/lib/api/notiications";
-import { getApplications } from "@/lib/api/saved-jobs";
+import { getNotifications } from "@/lib/api/notifications";
+import {
+  getApplications,
+  getSavedJobs,
+  saveJob,
+  unsaveJob,
+} from "@/lib/api/saved-jobs";
 
 import type {
   Application,
@@ -40,6 +45,12 @@ export default function HomePage() {
   const [profile, setProfile] =
     useState<CareerProfile | null>(null);
 
+  const [savedJobIds, setSavedJobIds] = useState<Set<number>>(
+    new Set(),
+  );
+  const [savingJobId, setSavingJobId] = useState<number | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,13 +64,18 @@ export default function HomePage() {
           matchesResult,
           notificationsResult,
           applicationsResult,
+          savedJobsResult,
         ] = await Promise.all([
           getUserMatches(USER_ID),
-          getUserNotifications(USER_ID),
+          getNotifications(USER_ID),
           getApplications(USER_ID),
+          getSavedJobs(USER_ID),
         ]);
 
         setMatches(matchesResult);
+        setSavedJobIds(
+          new Set(savedJobsResult.map((saved) => saved.job_id)),
+        );
         setNotifications(notificationsResult);
         setApplications(applicationsResult);
 
@@ -84,6 +100,40 @@ export default function HomePage() {
 
     loadDashboard();
   }, []);
+
+  const toggleSave = async (match: MatchedJob) => {
+    if (savingJobId !== null) {
+      return;
+    }
+
+    const wasSaved = savedJobIds.has(match.job_id);
+
+    setSavingJobId(match.job_id);
+
+    try {
+      if (wasSaved) {
+        await unsaveJob(USER_ID, match.job_id);
+      } else {
+        await saveJob({ user_id: USER_ID, job_id: match.job_id });
+      }
+
+      setSavedJobIds((current) => {
+        const next = new Set(current);
+
+        if (wasSaved) {
+          next.delete(match.job_id);
+        } else {
+          next.add(match.job_id);
+        }
+
+        return next;
+      });
+    } catch (err) {
+      console.error("Failed to update saved job:", err);
+    } finally {
+      setSavingJobId(null);
+    }
+  };
 
   const highMatches = matches.filter(
     (match) => match.score >= HIGH_MATCH_SCORE,
@@ -232,6 +282,11 @@ export default function HomePage() {
                       <MatchCard
                         key={match.id}
                         match={match}
+                        isSaved={savedJobIds.has(
+                          match.job_id,
+                        )}
+                        saving={savingJobId === match.job_id}
+                        onToggleSave={toggleSave}
                       />
                     ))}
                   </div>

@@ -13,6 +13,9 @@ import styles from "./MatchCard.module.css";
 
 interface MatchCardProps {
   match: MatchedJob;
+  isSaved: boolean;
+  saving: boolean;
+  onToggleSave: (match: MatchedJob) => void;
 }
 
 function getScoreClass(score: number) {
@@ -27,7 +30,12 @@ function getScoreClass(score: number) {
   return styles.scoreAverage;
 }
 
-export default function MatchCard({ match }: MatchCardProps) {
+export default function MatchCard({
+  match,
+  isSaved,
+  saving,
+  onToggleSave,
+}: MatchCardProps) {
   const reasons = match.match_reasons
     ? match.match_reasons
         .split(";")
@@ -88,10 +96,23 @@ export default function MatchCard({ match }: MatchCardProps) {
       <div className={styles.actions}>
         <button
           type="button"
-          className={styles.saveButton}
-          aria-label={`Save ${match.title}`}
+          className={`${styles.saveButton} ${
+            isSaved ? styles.saveButtonActive : ""
+          }`}
+          aria-label={
+            isSaved
+              ? `Remove ${match.title} from saved jobs`
+              : `Save ${match.title}`
+          }
+          aria-pressed={isSaved}
+          onClick={() => onToggleSave(match)}
+          disabled={saving}
         >
-          <Bookmark size={17} strokeWidth={1.8} />
+          <Bookmark
+            size={17}
+            strokeWidth={1.8}
+            fill={isSaved ? "currentColor" : "none"}
+          />
         </button>
 
         <Link

@@ -169,7 +169,7 @@ export default function SavedJobsPage() {
                 </p>
 
                 <h2 className={styles.sectionTitle}>
-                  Jobs you've saved
+                  Jobs you&apos;ve saved
                 </h2>
               </div>
 

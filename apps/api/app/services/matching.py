@@ -553,15 +553,10 @@ def _work_type_score(
             False,
         )
 
-    preferred = preferred.replace(
-        "-",
-        " ",
-    )
-
-    actual = actual.replace(
-        "-",
-        " ",
-    )
+    # The profile page saves "onsite"; job sources write "on-site",
+    # which normalises to "on site". Compare without separators.
+    preferred = preferred.replace("-", "").replace(" ", "")
+    actual = actual.replace("-", "").replace(" ", "")
 
     if preferred == actual:
         return (
@@ -914,6 +909,32 @@ def _salary_score(
 
 
 # ============================================================
+# UNPAID / VOLUNTEER ROLES
+# ============================================================
+
+UNPAID_TITLE = re.compile(r"\b(volunteer|volunteering|unpaid)\b")
+
+# Phrases that describe the role itself, so benefits such as
+# "unpaid leave" or "volunteering days" don't count.
+UNPAID_DESCRIPTION = re.compile(
+    r"\b(unpaid|volunteer) (role|position|opportunity|internship|job)\b"
+    r"|\b(is|are) (an? )?unpaid\b"
+    r"|\bno (salary|compensation|pay)\b"
+    r"|\bpro bono\b"
+)
+
+
+def _is_unpaid_role(job: Any) -> bool:
+    title = _normalize_text(getattr(job, "title", None))
+    description = (getattr(job, "description", None) or "").lower()
+
+    return bool(
+        UNPAID_TITLE.search(title)
+        or UNPAID_DESCRIPTION.search(description)
+    )
+
+
+# ============================================================
 # MAIN MATCHING FUNCTION
 # ============================================================
 
@@ -978,11 +999,16 @@ def calculate_match_score(
     )
     add(location_points, location_reason, LOCATION_WEIGHT)
 
-    salary_points, salary_reason, salary_problem = _salary_score(
+    # Salary is shown in the reasons but never affects the score, so a
+    # good role isn't missed over pay (or a currency mismatch). Only
+    # unpaid and volunteer roles are excluded, below.
+    _, salary_reason, _ = _salary_score(
         profile,
         job,
     )
-    add(salary_points, salary_reason, SALARY_WEIGHT)
+    reasons.append(salary_reason)
+
+    unpaid = _is_unpaid_role(job)
 
     score = round(earned / possible * 100) if possible else 0
 
@@ -993,13 +1019,19 @@ def calculate_match_score(
     # Experience and work type are deliberately NOT hard failures:
     # they reduce the score but don't make the job ineligible.
     #
-    # Geographic incompatibility and salary below the candidate's
-    # minimum remain hard eligibility failures.
+    # Geographic incompatibility and unpaid or volunteer roles are
+    # hard eligibility failures.
 
     hard_ineligible = (
         location_problem
-        or salary_problem
+        or unpaid
     )
+
+    if unpaid:
+        reasons.insert(
+            0,
+            "Unpaid or volunteer role",
+        )
 
     if hard_ineligible:
         score = min(

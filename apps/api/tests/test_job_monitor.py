@@ -296,7 +296,9 @@ def test_minimum_notification_score_is_configurable(db, monkeypatch):
     assert result["notifications_created"] == 11
 
 
-def test_jobs_outside_candidate_field_are_not_notified(db):
+def test_jobs_outside_candidate_field_are_not_notified(db, monkeypatch):
+    # With no minimum score, only the field check can block it.
+    monkeypatch.setenv("NOTIFICATION_MIN_SCORE", "0")
     make_profile(db, user_id=1)
 
     run_mock_monitor(db)
@@ -308,7 +310,6 @@ def test_jobs_outside_candidate_field_are_not_notified(db):
         .one()
     )
 
-    assert backend_match.score >= 60
     assert (
         db.query(Notification)
         .filter(Notification.job_match_id == backend_match.id)

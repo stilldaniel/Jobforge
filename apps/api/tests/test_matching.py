@@ -58,22 +58,24 @@ def test_strong_match_scores_above_90():
     assert reasons
 
 
-def test_salary_below_minimum_makes_job_ineligible():
+def test_salary_below_minimum_does_not_lower_the_score():
     profile = make_profile(
         minimum_salary=4000,
     )
 
-    job = make_job(
-        salary_min=2000,
-        salary_max=3000,
-    )
-
-    score, reasons = calculate_match_score(
+    low_pay, reasons = calculate_match_score(
         profile,
-        job,
+        make_job(salary_min=2000, salary_max=3000),
+    )
+    good_pay, _ = calculate_match_score(
+        profile,
+        make_job(salary_min=4000, salary_max=5000),
     )
 
-    assert score < 50
+    assert low_pay == good_pay
+    assert low_pay > 90
+    assert "Job salary is below candidate minimum" in reasons
+    assert "Job has an eligibility mismatch" not in reasons
 
 
 def test_location_mismatch_makes_job_ineligible():
@@ -340,7 +342,7 @@ def test_monthly_preference_is_compared_with_yearly_salary():
     assert "Job salary fits candidate salary preference" in reasons
 
 
-def test_salary_below_monthly_minimum_is_ineligible():
+def test_salary_below_monthly_minimum_is_shown_but_not_scored():
     profile = make_profile(
         minimum_salary=5000,
         maximum_salary=8000,
@@ -353,7 +355,7 @@ def test_salary_below_monthly_minimum_is_ineligible():
         make_real_job(salary_min=30000, salary_max=40000),
     )
 
-    assert score <= 49
+    assert score > 90
     assert "Job salary is below candidate minimum" in reasons
 
 
@@ -367,7 +369,7 @@ def test_yearly_preference_is_compared_directly():
 
     score, reasons = calculate_match_score(profile, make_real_job())
 
-    assert score <= 49
+    assert score > 90
     assert "Job salary is below candidate minimum" in reasons
 
 
@@ -394,3 +396,52 @@ def test_salary_not_compared_without_profile_currency():
         "Job salary could not be compared with your preference"
         in reasons
     )
+
+
+
+# ============================================================
+# UNPAID / VOLUNTEER ROLES
+# ============================================================
+
+def test_volunteer_role_is_ineligible():
+    score, reasons = calculate_match_score(
+        make_profile(),
+        make_job(title="Volunteer Frontend Developer"),
+    )
+
+    assert score <= 49
+    assert "Unpaid or volunteer role" in reasons
+
+
+def test_unpaid_role_in_description_is_ineligible():
+    score, reasons = calculate_match_score(
+        make_profile(),
+        make_job(description="This is an unpaid internship for students."),
+    )
+
+    assert score <= 49
+    assert "Unpaid or volunteer role" in reasons
+
+
+def test_unpaid_leave_benefit_does_not_count_as_unpaid_role():
+    score, reasons = calculate_match_score(
+        make_profile(),
+        make_job(
+            description=(
+                "Benefits include unpaid leave, volunteering days "
+                "and a learning budget."
+            ),
+        ),
+    )
+
+    assert score > 90
+    assert "Unpaid or volunteer role" not in reasons
+
+
+def test_onsite_preference_matches_on_site_jobs():
+    _, reasons = calculate_match_score(
+        make_profile(preferred_work_type="onsite"),
+        make_job(work_type="on-site", location="Lagos, Nigeria"),
+    )
+
+    assert "Preferred work type matched" in reasons

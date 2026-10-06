@@ -10,3 +10,7 @@ export function markNotificationAsRead(notificationId: number) {
     `/notifications/${notificationId}/read`,
   );
 }
+
+export function processDigestNotifications() {
+  return api.post("/notifications/digest/process");
+}

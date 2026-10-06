@@ -1,159 +1,133 @@
-# Turborepo starter
+# JobForge
 
-This Turborepo starter is maintained by the Turborepo core team.
+JobForge finds jobs for you. It scans job boards every 15 minutes, scores
+each new job against your career profile, and emails you about the ones
+worth your time:
 
-## Using this example
+- **89% or higher:** an email straight away. Several strong matches found
+  in the same scan share one email.
+- **60–88%:** one digest email each morning, at 08:00 in your timezone.
+- **Below 60%, or outside your field:** shown in the app only.
 
-Run the following command:
+The web app shows your matches, lets you save jobs and track applications,
+and holds your career profile and notification preferences.
 
-```sh
-npx create-turbo@latest
+## How it works
+
+1. **Discover.** The scheduler fetches jobs from the configured platforms
+   (Remotive, Remote OK, Arbeitnow, Jobicy, Himalayas, We Work Remotely,
+   and optionally Greenhouse, Lever and Ashby company boards or Adzuna).
+   Searches use the job titles in users' career profiles, and broad feeds
+   are filtered to jobs relevant to at least one profile.
+2. **Deduplicate.** A job already imported from another platform is
+   skipped.
+3. **Score.** Each new job is scored from 0 to 100 on job title, skills,
+   experience, work type and location. Only what the job states is
+   scored, so a post that omits experience isn't penalised. Jobs the
+   candidate can't take (wrong country, unpaid or volunteer) are capped at
+   49. Salary is shown for reference but never changes the score.
+4. **Notify.** Matches in the candidate's field that score 60 or more
+   create a notification, delivered by email through
+   [Resend](https://resend.com) according to the user's preferences.
+
+## Tech stack
+
+| Part | Stack |
+| --- | --- |
+| Monorepo | Turborepo, pnpm workspaces |
+| Frontend (`apps/web`) | Next.js 16, React 19, TypeScript, CSS modules |
+| Backend (`apps/api`) | FastAPI, SQLAlchemy 2, Alembic, APScheduler |
+| Database | PostgreSQL |
+| Email | Resend |
+
+## Getting started
+
+### Requirements
+
+- Node.js 18+ and pnpm 9
+- Python 3.14
+- PostgreSQL
+
+### Backend
+
+```bash
+cd apps/api
+python -m venv .venv
+.venv\Scripts\activate          # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env            # then fill in the values
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
-## What's inside?
+The API runs at http://localhost:8000, with interactive docs at
+http://localhost:8000/docs. The scheduler starts with the server and runs
+its first scan straight away.
 
-This Turborepo includes the following packages/apps:
+### Frontend
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+```bash
+pnpm install
+pnpm --filter web dev
 ```
 
-Without global `turbo`, use your package manager:
+The app runs at http://localhost:3000. Create `apps/web/.env.local` with:
 
-```sh
-cd my-turborepo
-npx turbo build
-pnpm dlx turbo build
-pnpm exec turbo build
+```bash
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_DEV_USER_ID=5
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+There is no login yet: every page acts as the user in
+`NEXT_PUBLIC_DEV_USER_ID`.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## Configuration
 
-```sh
-turbo build --filter=docs
+Backend settings live in `apps/api/.env`. See
+[`apps/api/.env.example`](apps/api/.env.example) for the full list.
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JOB_SOURCES` | Platforms to scan, comma separated |
+| `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Email delivery |
+| `DIGEST_ENABLED`, `DIGEST_HOUR`, `DIGEST_MINUTE` | Daily digest, in each user's timezone |
+| `NOTIFICATION_MIN_SCORE` | Lowest score that notifies (default 60) |
+| `NOTIFICATION_MAX_ATTEMPTS` | Email delivery retries (default 3) |
+| `GREENHOUSE_BOARDS`, `LEVER_COMPANIES`, `ASHBY_BOARDS` | Company career pages to scan |
+| `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `ADZUNA_COUNTRY` | Adzuna (one country per search) |
+| `LOG_LEVEL` | Server log level (default INFO) |
+
+## Tests
+
+```bash
+cd apps/api
+pytest
 ```
 
-Without global `turbo`:
+Tests run against an in-memory SQLite database and never call real job
+platforms or send email.
 
-```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+```bash
+pnpm --filter web lint
+pnpm --filter web check-types
 ```
 
-### Develop
+## Job platform terms
 
-To develop all apps and packages, run the following command:
+Most platforms require a link back to the original listing and a credit
+to the platform; the app links to each job's source URL and shows the
+platform's name. Remotive allows at most 4 requests a day (JobForge fetches
+it every 6 hours) and does not allow its jobs to be shown behind a sign-up
+without its paid API, so remove it before a public launch or arrange
+access.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Documentation
 
-```sh
-cd my-turborepo
-turbo dev
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
-```
-
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- [System design](docs/architecture/system-design.md)
+- [Backend](docs/architecture/backend.md)
+- [Frontend](docs/architecture/frontend.md)
+- [API endpoints](docs/api/endpoints.md)
+- [Database schema](docs/database/schema.md) and [ERD](docs/database/erd.md)
+- [MVP](docs/product/mvp.md) and [Roadmap](docs/product/roadmap.md)
+- [Engineering principles](docs/engineering-principles.md)
