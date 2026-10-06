@@ -1,5 +1,7 @@
 import logging
 import os
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from sqlalchemy.orm import Session
 
@@ -12,6 +14,116 @@ from app.services.notification_service import (
 
 
 logger = logging.getLogger(__name__)
+
+
+def get_digest_schedule() -> tuple[int, int]:
+    """
+    Read and validate the daily digest schedule from environment variables.
+
+    The time is local to each user. Defaults to 08:00 if the configured
+    hour or minute is invalid.
+    """
+
+    default_hour = 8
+    default_minute = 0
+
+    try:
+        hour = int(os.getenv("DIGEST_HOUR", str(default_hour)))
+        minute = int(os.getenv("DIGEST_MINUTE", str(default_minute)))
+    except ValueError:
+        logger.warning(
+            "Invalid digest schedule configuration. "
+            "Falling back to 08:00."
+        )
+        return default_hour, default_minute
+
+    if not 0 <= hour <= 23:
+        logger.warning(
+            "Invalid DIGEST_HOUR=%s. Falling back to 08:00.",
+            hour,
+        )
+        return default_hour, default_minute
+
+    if not 0 <= minute <= 59:
+        logger.warning(
+            "Invalid DIGEST_MINUTE=%s. Falling back to 08:00.",
+            minute,
+        )
+        return default_hour, default_minute
+
+    return hour, minute
+
+
+def get_user_timezone(user: User) -> ZoneInfo:
+    """
+    The user's timezone, or UTC if it isn't a valid IANA name.
+    """
+
+    try:
+        return ZoneInfo(user.timezone)
+    except (ZoneInfoNotFoundError, ValueError, TypeError):
+        logger.warning(
+            "Invalid timezone %r for user_id=%s. Using UTC.",
+            user.timezone,
+            user.id,
+        )
+        return ZoneInfo("UTC")
+
+
+def _as_utc(value: datetime) -> datetime:
+    # SQLite returns naive datetimes; they are stored in UTC.
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value
+
+
+def latest_digest_time(
+    user: User,
+    now: datetime,
+) -> datetime:
+    """
+    The most recent digest time (e.g. 08:00) in the user's timezone
+    that is at or before `now`.
+    """
+
+    user_timezone = get_user_timezone(user)
+    hour, minute = get_digest_schedule()
+
+    local_now = now.astimezone(user_timezone)
+    scheduled = datetime.combine(
+        local_now.date(),
+        time(hour, minute),
+        tzinfo=user_timezone,
+    )
+
+    if scheduled > local_now:
+        scheduled = datetime.combine(
+            local_now.date() - timedelta(days=1),
+            time(hour, minute),
+            tzinfo=user_timezone,
+        )
+
+    return scheduled
+
+
+def is_digest_due(
+    user: User,
+    now: datetime,
+) -> bool:
+    """
+    Whether the user's digest time has passed since their last digest.
+
+    A new user's first digest waits for their next digest time rather
+    than going out as soon as they have a match.
+    """
+
+    last_digest_at = user.last_digest_at or user.created_at
+
+    if last_digest_at is None:
+        return True
+
+    return _as_utc(last_digest_at) < latest_digest_time(user, now)
 
 
 def get_max_notification_attempts() -> int:
@@ -265,9 +377,15 @@ def process_immediate_notifications(
 
 def process_digest_notifications(
     db: Session,
+    now: datetime | None = None,
+    only_due: bool = False,
 ) -> dict:
     """
     Process pending digest notifications as aggregated emails.
+
+    With `only_due` (the scheduler), a user is processed only once their
+    digest time has passed in their own timezone, at most once a day.
+    Without it (the manual endpoint), every pending digest is processed.
 
     All pending digest notifications belonging to the same user
     are combined into a single email.
@@ -321,10 +439,19 @@ def process_digest_notifications(
 
     delivery = EmailDelivery()
 
+    if now is None:
+        now = datetime.now(timezone.utc)
+
     for user_id, user_notifications in notifications_by_user.items():
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if only_due and user and not is_digest_due(user, now):
+            continue
+
         users_processed += 1
 
-        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            user.last_digest_at = now
 
         if user and not (
             user.digest_notifications_enabled

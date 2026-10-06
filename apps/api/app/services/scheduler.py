@@ -6,53 +6,20 @@ from zoneinfo import ZoneInfo
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from app.db.database import SessionLocal
-from app.services.digest_service import process_digest_notifications
+from app.services.digest_service import (
+    get_digest_schedule,
+    process_digest_notifications,
+    process_immediate_notifications,
+)
 from app.services.job_monitor import monitor_jobs
-from app.services.digest_service import process_immediate_notifications
 
 
 logger = logging.getLogger(__name__)
 
+# Jobs run on UTC; the digest is timed per user in their own timezone.
 scheduler = BackgroundScheduler(
-    timezone=ZoneInfo("Africa/Lagos")
+    timezone=ZoneInfo("UTC")
 )
-
-
-def get_digest_schedule() -> tuple[int, int]:
-    """
-    Read and validate the daily digest schedule from environment variables.
-
-    Defaults to 08:00 if the configured hour or minute is invalid.
-    """
-
-    default_hour = 8
-    default_minute = 0
-
-    try:
-        hour = int(os.getenv("DIGEST_HOUR", str(default_hour)))
-        minute = int(os.getenv("DIGEST_MINUTE", str(default_minute)))
-    except ValueError:
-        logger.warning(
-            "Invalid digest schedule configuration. "
-            "Falling back to 08:00."
-        )
-        return default_hour, default_minute
-
-    if not 0 <= hour <= 23:
-        logger.warning(
-            "Invalid DIGEST_HOUR=%s. Falling back to 08:00.",
-            hour,
-        )
-        return default_hour, default_minute
-
-    if not 0 <= minute <= 59:
-        logger.warning(
-            "Invalid DIGEST_MINUTE=%s. Falling back to 08:00.",
-            minute,
-        )
-        return default_hour, default_minute
-
-    return hour, minute
 
 
 def run_monitoring_job():
@@ -88,7 +55,10 @@ def run_digest_job():
     db = SessionLocal()
 
     try:
-        result = process_digest_notifications(db=db)
+        result = process_digest_notifications(
+            db=db,
+            only_due=True,
+        )
 
         logger.info(
             "Daily digest processing completed: %s",
@@ -129,11 +99,13 @@ def start_scheduler():
     )
 
     if digest_enabled:
+        # Check every 15 minutes which users have reached their digest
+        # time locally. Quarter-hour checks cover every UTC offset,
+        # including half- and quarter-hour ones (India, Nepal).
         scheduler.add_job(
             run_digest_job,
             trigger="cron",
-            hour=digest_hour,
-            minute=digest_minute,
+            minute="0,15,30,45",
             id="jobforge_daily_digest",
             replace_existing=True,
             max_instances=1,
@@ -141,7 +113,7 @@ def start_scheduler():
         )
 
         logger.info(
-            "Daily digest scheduled for %02d:%02d",
+            "Daily digest scheduled for %02d:%02d in each user's timezone",
             digest_hour,
             digest_minute,
         )

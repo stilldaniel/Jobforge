@@ -112,3 +112,29 @@ def test_preferences_reject_non_boolean_values(client, user):
     )
 
     assert response.status_code == 422
+
+
+def test_unknown_timezone_is_rejected(client, user):
+    response = client.put(
+        f"/users/{user.id}",
+        json={
+            "email": "preferences@example.com",
+            "timezone": "Lagos",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Unknown timezone: Lagos" in response.json()["detail"]
+
+
+def test_valid_timezone_is_saved(client, db, user):
+    response = client.put(
+        f"/users/{user.id}",
+        json={
+            "email": "preferences@example.com",
+            "timezone": " America/New_York ",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["timezone"] == "America/New_York"

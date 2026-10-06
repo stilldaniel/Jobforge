@@ -97,6 +97,12 @@ function disabledReason(
   return null;
 }
 
+// IANA timezone names offered as suggestions; the API rejects others.
+const TIMEZONES: string[] =
+  typeof Intl.supportedValuesOf === "function"
+    ? Intl.supportedValuesOf("timeZone")
+    : [];
+
 function userToForm(user: User): FormState {
   return {
     email: user.email,
@@ -397,11 +403,19 @@ export default function SettingsPage() {
                     )
                   }
                   placeholder="e.g. Africa/Lagos"
+                  list="timezone-options"
+                  autoComplete="off"
                 />
 
+                <datalist id="timezone-options">
+                  {TIMEZONES.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+
                 <span className={styles.hint}>
-                  Used when displaying dates and
-                  scheduling job notifications.
+                  Your daily digest arrives each morning
+                  in this timezone.
                 </span>
               </div>
             </div>

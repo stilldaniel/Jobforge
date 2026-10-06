@@ -55,6 +55,13 @@ class User(Base):
         server_default=true(),
     )
 
+    # When this user's daily digest was last processed, so it goes out
+    # once per day at the digest time in their own timezone.
+    last_digest_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

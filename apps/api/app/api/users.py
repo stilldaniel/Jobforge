@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,28 @@ router = APIRouter(
 )
 
 
+def validate_timezone(name: str) -> str:
+    """
+    Accept only IANA timezone names, since the daily digest is sent
+    at a set time in the user's timezone.
+    """
+
+    name = name.strip()
+
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Unknown timezone: {name}. "
+                "Use a name like Africa/Lagos or Europe/London."
+            ),
+        )
+
+    return name
+
+
 @router.post("/", response_model=UserResponse)
 def create_user(
     user_data: UserCreate,
@@ -25,7 +49,7 @@ def create_user(
     user = User(
         email=user_data.email,
         full_name=user_data.full_name,
-        timezone=user_data.timezone,
+        timezone=validate_timezone(user_data.timezone),
     )
 
     db.add(user)
@@ -121,7 +145,7 @@ def update_user(
 
     user.email = user_data.email
     user.full_name = user_data.full_name
-    user.timezone = user_data.timezone
+    user.timezone = validate_timezone(user_data.timezone)
 
     db.commit()
     db.refresh(user)
