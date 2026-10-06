@@ -81,6 +81,50 @@ NEXT_PUBLIC_DEV_USER_ID=5
 There is no login yet: every page acts as the user in
 `NEXT_PUBLIC_DEV_USER_ID`.
 
+## Running in the background on Windows
+
+On this machine the backend starts by itself at Windows log-on, through
+a Task Scheduler task called **JobForge API**. It runs
+[`apps/api/run_server.py`](apps/api/run_server.py) with `pythonw.exe`, so
+there's no window, and writes its output to `apps/api/logs/api.log`. Scans
+pause while the laptop sleeps and resume when it wakes; a digest missed
+while the laptop was off is sent once it's back on.
+
+Run these in PowerShell:
+
+```powershell
+# Is it running?
+Get-ScheduledTask -TaskName "JobForge API" | Select-Object State
+Invoke-RestMethod http://127.0.0.1:8000/health
+
+# Follow the log (Ctrl+C to stop following)
+Get-Content apps\api\logs\api.log -Tail 50 -Wait
+
+# Stop, start, or restart (e.g. after changing .env or pulling new code)
+Stop-ScheduledTask -TaskName "JobForge API"
+Start-ScheduledTask -TaskName "JobForge API"
+```
+
+To work on the backend with `uvicorn app.main:app --reload`, stop the
+task first: both use port 8000, and only one may run the scheduler. Start
+the task again when you're done.
+
+To set the task up on another machine:
+
+```powershell
+$api = "C:\path\to\Jobforge\apps\api"
+$action = New-ScheduledTaskAction -Execute "$api\.venv\Scripts\pythonw.exe" -Argument "`"$api\run_server.py`"" -WorkingDirectory $api
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -StartWhenAvailable
+Register-ScheduledTask -TaskName "JobForge API" -Action $action -Trigger $trigger -Settings $settings
+```
+
+To remove it:
+
+```powershell
+Unregister-ScheduledTask -TaskName "JobForge API" -Confirm:$false
+```
+
 ## Configuration
 
 Backend settings live in `apps/api/.env`. See
