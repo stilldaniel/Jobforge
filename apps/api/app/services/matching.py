@@ -963,11 +963,12 @@ def calculate_match_score(
         )
 
     # --------------------------------------------------------
-    # Not enough information for an immediate notification (>90)
+    # Less certain matches
     # --------------------------------------------------------
     #
+    # Capped at 89 so they never show as a perfect score:
     # - Remote with unknown geography: many "remote" jobs only hire
-    #   in one country, so don't alert until eligibility is known.
+    #   in one country.
     # - No recognisable skills: the job can't be judged on what the
     #   role actually involves.
 

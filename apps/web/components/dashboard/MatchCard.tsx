@@ -8,6 +8,7 @@ import {
 
 import type { MatchedJob } from "@/types/api";
 
+import { HIGH_MATCH_SCORE } from "@/lib/config";
 import styles from "./MatchCard.module.css";
 
 interface MatchCardProps {
@@ -15,7 +16,7 @@ interface MatchCardProps {
 }
 
 function getScoreClass(score: number) {
-  if (score >= 91) {
+  if (score >= HIGH_MATCH_SCORE) {
     return styles.scoreHigh;
   }
 

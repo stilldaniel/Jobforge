@@ -1,6 +1,9 @@
 "use client";
 
-import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import {
+  DEV_USER_ID as USER_ID,
+  HIGH_MATCH_SCORE,
+} from "@/lib/config";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, LoaderCircle } from "lucide-react";
@@ -83,7 +86,7 @@ export default function HomePage() {
   }, []);
 
   const highMatches = matches.filter(
-    (match) => match.score >= 91,
+    (match) => match.score >= HIGH_MATCH_SCORE,
   ).length;
 
   const unreadNotifications = notifications.filter(
@@ -99,7 +102,7 @@ export default function HomePage() {
   ).length;
 
   const topMatches = matches
-    .filter((match) => match.score >= 91)
+    .filter((match) => match.score >= HIGH_MATCH_SCORE)
     .slice(0, 5);
 
   return (
@@ -210,7 +213,7 @@ export default function HomePage() {
                     </h3>
 
                     <p>
-                      Once jobs reach a 91% or higher
+                      Once jobs reach a {HIGH_MATCH_SCORE}% or higher
                       match score, they will appear
                       here.
                     </p>

@@ -1,6 +1,9 @@
 "use client";
 
-import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import {
+  DEV_USER_ID as USER_ID,
+  HIGH_MATCH_SCORE,
+} from "@/lib/config";
 import { formatSalary, formatSource } from "@/lib/format";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -107,11 +110,11 @@ export default function JobsPage() {
 
       const matchesScore =
         matchFilter === "all" ||
-        (matchFilter === "high" && match && match.score >= 91) ||
+        (matchFilter === "high" && match && match.score >= HIGH_MATCH_SCORE) ||
         (matchFilter === "good" &&
           match &&
           match.score >= 75 &&
-          match.score < 91) ||
+          match.score < HIGH_MATCH_SCORE) ||
         (matchFilter === "any" && Boolean(match));
 
       return (
@@ -296,8 +299,10 @@ export default function JobsPage() {
                   className={styles.select}
                 >
                   <option value="all">All matches</option>
-                  <option value="high">High match · 91%+</option>
-                  <option value="good">Good match · 75–90%</option>
+                  <option value="high">High match · {HIGH_MATCH_SCORE}%+</option>
+                  <option value="good">
+                    Good match · 75–{HIGH_MATCH_SCORE - 1}%
+                  </option>
                   <option value="any">Matched jobs only</option>
                 </select>
 
@@ -404,10 +409,10 @@ export default function JobsPage() {
                     >
                       <option value="all">All matches</option>
                       <option value="high">
-                        High match · 91%+
+                        High match · {HIGH_MATCH_SCORE}%+
                       </option>
                       <option value="good">
-                        Good match · 75–90%
+                        Good match · 75–{HIGH_MATCH_SCORE - 1}%
                       </option>
                       <option value="any">
                         Matched jobs only

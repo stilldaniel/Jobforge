@@ -109,7 +109,7 @@ def test_create_immediate_notification_for_high_score(
     assert notification.attempts == 0
 
 
-def test_create_digest_notification_for_score_at_or_below_90(
+def test_create_digest_notification_for_score_below_89(
     db,
     user,
     job,
@@ -118,7 +118,7 @@ def test_create_digest_notification_for_score_at_or_below_90(
         db=db,
         user_id=user.id,
         job_id=job.id,
-        score=90,
+        score=88,
     )
 
     notification = create_notification_for_match(
@@ -345,40 +345,40 @@ def test_notification_defaults_attempts_to_zero(
     assert notification.attempts == 0
 
 
-def test_immediate_threshold_is_strictly_above_90(
+def test_immediate_threshold_starts_at_89(
     db,
     user,
     job,
 ):
-    match_90 = create_match(
+    match_88 = create_match(
         db=db,
         user_id=user.id,
         job_id=job.id,
-        score=90,
+        score=88,
     )
 
-    notification_90 = create_notification_for_match(
+    notification_88 = create_notification_for_match(
         db=db,
-        match=match_90,
+        match=match_88,
     )
 
-    assert notification_90 is not None
-    assert notification_90.notification_type == "digest"
+    assert notification_88 is not None
+    assert notification_88.notification_type == "digest"
 
-    match_91 = create_match(
+    match_89 = create_match(
         db=db,
         user_id=user.id,
         job_id=job.id,
-        score=91,
+        score=89,
     )
 
-    notification_91 = create_notification_for_match(
+    notification_89 = create_notification_for_match(
         db=db,
-        match=match_91,
+        match=match_89,
     )
 
-    assert notification_91 is not None
-    assert notification_91.notification_type == "immediate"
+    assert notification_89 is not None
+    assert notification_89.notification_type == "immediate"
 
 
 def test_notification_can_be_read_without_affecting_delivery_status(

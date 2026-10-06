@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 # eligibility check (location, salary) are capped at 49.
 DEFAULT_MIN_NOTIFICATION_SCORE = 60
 
+# Matches at or above this score are emailed straight away; the rest
+# go into the daily digest. 89 includes strong matches the scoring
+# caps for uncertainty (remote region or skills not stated).
+IMMEDIATE_NOTIFICATION_SCORE = 89
+
 
 def get_min_notification_score() -> int:
     """
@@ -49,8 +54,9 @@ def create_notification_for_match(
     """
     Create a notification for a job match.
 
-    Matches above 90 receive an immediate notification.
-    Matches at or below 90 are added to the digest queue.
+    Matches scoring IMMEDIATE_NOTIFICATION_SCORE (89) or higher
+    receive an immediate notification. Lower matches are added to
+    the digest queue.
 
     A notification will not be created if:
         - the match scores below the minimum notification score
@@ -92,7 +98,7 @@ def create_notification_for_match(
         user.high_match_alerts_enabled if user else True
     )
 
-    if match.score > 90 and high_match_alerts:
+    if match.score >= IMMEDIATE_NOTIFICATION_SCORE and high_match_alerts:
         notification_type = "immediate"
         title = "New high-quality job match"
     else:

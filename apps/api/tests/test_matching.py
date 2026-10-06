@@ -279,7 +279,7 @@ def test_stated_mismatch_still_lowers_the_score():
     assert score <= 90
 
 
-def test_job_without_recognisable_skills_cannot_trigger_instant_alert():
+def test_job_without_recognisable_skills_is_capped_at_89():
     score, _ = calculate_match_score(
         make_profile(),
         make_job(required_skills="[]"),

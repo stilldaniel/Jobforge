@@ -208,13 +208,13 @@ def test_notifications_use_score_threshold(db):
         match = db.query(JobMatch).filter(JobMatch.id == match_id).first()
 
         assert match is not None
-        assert match.score > 90
+        assert match.score >= 89
 
     for match_id in digest_match_ids:
         match = db.query(JobMatch).filter(JobMatch.id == match_id).first()
 
         assert match is not None
-        assert match.score <= 90
+        assert match.score < 89
 
 
 def test_monitoring_continues_when_one_source_fails(db):

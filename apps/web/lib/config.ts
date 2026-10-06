@@ -2,3 +2,7 @@
 export const DEV_USER_ID = Number(
   process.env.NEXT_PUBLIC_DEV_USER_ID || "5",
 );
+
+// Matches at or above this score are emailed instantly by the API
+// (IMMEDIATE_NOTIFICATION_SCORE) and shown as high matches here.
+export const HIGH_MATCH_SCORE = 89;

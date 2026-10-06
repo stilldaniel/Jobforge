@@ -7,6 +7,7 @@ import {
   Trophy,
 } from "lucide-react";
 
+import { HIGH_MATCH_SCORE } from "@/lib/config";
 import styles from "./DashboardStats.module.css";
 
 interface DashboardStatsProps {
@@ -36,7 +37,7 @@ export default function DashboardStats({
     {
       label: "High Matches",
       value: highMatches,
-      description: "91% match or higher",
+      description: `${HIGH_MATCH_SCORE}% match or higher`,
       icon: Sparkles,
     },
     {
