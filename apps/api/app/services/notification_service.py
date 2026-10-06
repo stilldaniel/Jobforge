@@ -4,8 +4,11 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.models.career_profile import CareerProfile
 from app.models.job_match import JobMatch
 from app.models.notification import Notification
+from app.models.user import User
+from app.services.search_criteria import has_field_fit
 
 
 logger = logging.getLogger(__name__)
@@ -49,12 +52,31 @@ def create_notification_for_match(
     Matches above 90 receive an immediate notification.
     Matches at or below 90 are added to the digest queue.
 
-    A notification will not be created if the match scores below
-    the minimum notification score, or if one already exists for
-    this job match.
+    A notification will not be created if:
+        - the match scores below the minimum notification score
+        - the job is outside the candidate's field (see has_field_fit)
+        - one already exists for this job match
+        - the user turned off job alerts
+
+    High-quality matches go to the digest instead of an immediate
+    email when the user turned off high-match alerts.
     """
 
+    user = db.query(User).filter(User.id == match.user_id).first()
+
+    if user and not user.job_alerts_enabled:
+        return None
+
     if match.score < get_min_notification_score():
+        return None
+
+    profile = (
+        db.query(CareerProfile)
+        .filter(CareerProfile.user_id == match.user_id)
+        .first()
+    )
+
+    if not profile or not has_field_fit(profile, match.job):
         return None
 
     existing_notification = (
@@ -66,7 +88,11 @@ def create_notification_for_match(
     if existing_notification:
         return None
 
-    if match.score > 90:
+    high_match_alerts = (
+        user.high_match_alerts_enabled if user else True
+    )
+
+    if match.score > 90 and high_match_alerts:
         notification_type = "immediate"
         title = "New high-quality job match"
     else:

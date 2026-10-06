@@ -19,7 +19,6 @@ class JobicyJobSource(JobSource):
     BASE_URL = "https://jobicy.com/api/v2/remote-jobs"
 
     filter_by_relevance = True
-    min_interval_minutes = 60
 
     def __init__(self, count: int = 100):
         self.count = count

@@ -127,3 +127,29 @@ def is_relevant(
             return True
 
     return False
+
+
+def has_field_fit(
+    profile: CareerProfile,
+    job,
+) -> bool:
+    """
+    Whether a job is in the candidate's field at all: its title shares
+    a specific word with the profile title or names one of their
+    skills, or it requires at least one of their skills.
+
+    Generic title words ("developer", "senior") don't count, so a
+    Backend Developer job is not a fit for a Frontend Developer unless
+    the skills overlap.
+    """
+
+    criteria = build_search_criteria([profile])
+
+    if is_relevant(job, criteria):
+        return True
+
+    required_skills = _normalize_skills(
+        getattr(job, "required_skills", None)
+    )
+
+    return bool(required_skills & criteria.skill_keywords)

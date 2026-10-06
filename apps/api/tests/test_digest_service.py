@@ -231,6 +231,7 @@ def test_immediate_notification_is_sent_successfully(
         "notifications_processed": 1,
         "notifications_sent": 1,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "sent"
@@ -277,6 +278,7 @@ def test_immediate_notification_failure_remains_pending(
         "notifications_processed": 1,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "pending"
@@ -325,6 +327,7 @@ def test_immediate_notification_exception_remains_pending(
         "notifications_processed": 1,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "pending"
@@ -386,6 +389,7 @@ def test_immediate_notification_fails_after_max_attempts(
         "notifications_processed": 1,
         "notifications_sent": 0,
         "notifications_failed": 1,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "failed"
@@ -422,6 +426,7 @@ def test_unsupported_immediate_channel_retries(
         "notifications_processed": 1,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "pending"
@@ -443,6 +448,7 @@ def test_no_pending_immediate_notifications_returns_zero_counts(
         "notifications_processed": 0,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
 
@@ -500,6 +506,7 @@ def test_digest_notifications_for_same_user_are_aggregated(
         "notifications_processed": 2,
         "notifications_sent": 2,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert captured["user_id"] == user.id
@@ -576,6 +583,7 @@ def test_digest_notifications_are_grouped_by_user(
         "notifications_processed": 2,
         "notifications_sent": 2,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert len(captured) == 2
@@ -646,6 +654,7 @@ def test_digest_failure_keeps_notifications_pending(
         "notifications_processed": 0,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert first.status == "pending"
@@ -715,6 +724,7 @@ def test_digest_failure_marks_all_notifications_failed_after_max_attempts(
         "notifications_processed": 0,
         "notifications_sent": 0,
         "notifications_failed": 2,
+        "notifications_skipped": 0,
     }
 
     assert first.status == "failed"
@@ -757,6 +767,7 @@ def test_unsupported_digest_channel_keeps_group_pending(
         "notifications_processed": 0,
         "notifications_sent": 0,
         "notifications_failed": 0,
+        "notifications_skipped": 0,
     }
 
     assert notification.status == "pending"
@@ -869,3 +880,238 @@ def test_immediate_processor_does_not_process_digest_notifications(
 
     assert digest.status == "pending"
     assert digest.attempts == 0
+
+# ============================================================
+# GROUPED IMMEDIATE EMAILS
+# ============================================================
+
+class RecordingEmailDelivery:
+    calls: list = []
+
+    def send(self, db, notification):
+        RecordingEmailDelivery.calls.append(("single", [notification.id]))
+        return True
+
+    def send_high_match_batch(self, db, user_id, notifications):
+        RecordingEmailDelivery.calls.append(
+            ("batch", [notification.id for notification in notifications])
+        )
+        return True
+
+    def send_digest(self, db, user_id, notifications):
+        RecordingEmailDelivery.calls.append(
+            ("digest", [notification.id for notification in notifications])
+        )
+        return True
+
+
+@pytest.fixture
+def recording_delivery(monkeypatch):
+    RecordingEmailDelivery.calls = []
+
+    monkeypatch.setattr(
+        digest_service,
+        "EmailDelivery",
+        RecordingEmailDelivery,
+    )
+
+    return RecordingEmailDelivery
+
+
+def test_several_immediate_matches_share_one_email(
+    db,
+    user,
+    job,
+    recording_delivery,
+):
+    first = create_notification(db, user.id, job.id)
+    second = create_notification(db, user.id, job.id)
+
+    result = digest_service.process_immediate_notifications(db=db)
+
+    assert recording_delivery.calls == [
+        ("batch", [first.id, second.id]),
+    ]
+    assert result["notifications_sent"] == 2
+
+    db.refresh(first)
+    db.refresh(second)
+
+    assert first.status == "sent"
+    assert second.status == "sent"
+
+
+def test_immediate_emails_are_grouped_per_user(
+    db,
+    user,
+    second_user,
+    job,
+    recording_delivery,
+):
+    first = create_notification(db, user.id, job.id)
+    second = create_notification(db, second_user.id, job.id)
+
+    digest_service.process_immediate_notifications(db=db)
+
+    assert sorted(recording_delivery.calls) == [
+        ("single", [first.id]),
+        ("single", [second.id]),
+    ]
+
+
+def test_failed_batch_keeps_every_notification_pending(
+    db,
+    user,
+    job,
+    monkeypatch,
+):
+    class FailingBatchDelivery:
+        def send_high_match_batch(self, db, user_id, notifications):
+            raise RuntimeError("Resend unavailable")
+
+    monkeypatch.setattr(
+        digest_service,
+        "EmailDelivery",
+        FailingBatchDelivery,
+    )
+    monkeypatch.setenv("NOTIFICATION_MAX_ATTEMPTS", "3")
+
+    notifications = [
+        create_notification(db, user.id, job.id),
+        create_notification(db, user.id, job.id),
+    ]
+
+    result = digest_service.process_immediate_notifications(db=db)
+
+    assert result["notifications_sent"] == 0
+    assert result["notifications_failed"] == 0
+
+    for notification in notifications:
+        db.refresh(notification)
+
+        assert notification.status == "pending"
+        assert notification.attempts == 1
+        assert notification.last_error == "Resend unavailable"
+
+
+# ============================================================
+# PREFERENCES
+# ============================================================
+
+def test_immediate_skipped_when_email_notifications_off(
+    db,
+    user,
+    job,
+    recording_delivery,
+):
+    user.email_notifications_enabled = False
+    db.commit()
+
+    notification = create_notification(db, user.id, job.id)
+
+    result = digest_service.process_immediate_notifications(db=db)
+
+    db.refresh(notification)
+
+    assert recording_delivery.calls == []
+    assert result["notifications_skipped"] == 1
+    assert notification.status == "skipped"
+    assert notification.attempts == 0
+
+
+def test_immediate_moves_to_digest_when_high_match_alerts_off(
+    db,
+    user,
+    job,
+    recording_delivery,
+):
+    user.high_match_alerts_enabled = False
+    db.commit()
+
+    notification = create_notification(db, user.id, job.id)
+
+    digest_service.process_immediate_notifications(db=db)
+
+    db.refresh(notification)
+
+    assert recording_delivery.calls == []
+    assert notification.notification_type == "digest"
+    assert notification.status == "pending"
+
+    digest_service.process_digest_notifications(db=db)
+
+    assert recording_delivery.calls == [("digest", [notification.id])]
+
+
+@pytest.mark.parametrize(
+    "preference",
+    [
+        "digest_notifications_enabled",
+        "email_notifications_enabled",
+    ],
+)
+def test_digest_skipped_when_turned_off(
+    db,
+    user,
+    job,
+    recording_delivery,
+    preference,
+):
+    setattr(user, preference, False)
+    db.commit()
+
+    notification = create_notification(
+        db,
+        user.id,
+        job.id,
+        notification_type="digest",
+        score=80,
+    )
+
+    result = digest_service.process_digest_notifications(db=db)
+
+    db.refresh(notification)
+
+    assert recording_delivery.calls == []
+    assert result["notifications_skipped"] == 1
+    assert notification.status == "skipped"
+
+
+def test_skipped_notifications_are_not_retried(
+    db,
+    user,
+    job,
+    recording_delivery,
+):
+    user.email_notifications_enabled = False
+    db.commit()
+
+    create_notification(db, user.id, job.id)
+    digest_service.process_immediate_notifications(db=db)
+
+    user.email_notifications_enabled = True
+    db.commit()
+
+    result = digest_service.process_immediate_notifications(db=db)
+
+    assert recording_delivery.calls == []
+    assert result["notifications_processed"] == 0
+
+
+def test_high_match_batch_email_lists_every_job(db, user, job):
+    from app.services.email_delivery import EmailDelivery
+
+    notifications = [
+        create_notification(db, user.id, job.id),
+        create_notification(db, user.id, job.id),
+    ]
+
+    html_content = EmailDelivery._build_digest_html(
+        notifications=notifications,
+        heading="New high-quality job matches",
+        intro="We found 2 new jobs <today>.",
+    )
+
+    assert html_content.count("Frontend Developer") == 2
+    assert "New high-quality job matches" in html_content
+    assert "&lt;today&gt;" in html_content

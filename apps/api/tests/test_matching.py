@@ -244,3 +244,67 @@ def test_experience_shortfall_does_not_make_job_ineligible():
 
     assert score >= 50
     assert reasons
+
+# ============================================================
+# UNSTATED INFORMATION
+# ============================================================
+
+def test_missing_experience_and_salary_do_not_lower_the_score():
+    profile = make_profile()
+
+    stated, _ = calculate_match_score(profile, make_job())
+    unstated, reasons = calculate_match_score(
+        profile,
+        make_job(
+            required_experience=None,
+            salary_min=None,
+            salary_max=None,
+        ),
+    )
+
+    assert unstated == stated
+    assert unstated > 90
+    assert "No specific experience requirement" in reasons
+    assert "Job salary is not specified" in reasons
+
+
+def test_stated_mismatch_still_lowers_the_score():
+    profile = make_profile(years_of_experience=1)
+
+    score, _ = calculate_match_score(
+        profile,
+        make_job(required_experience=6),
+    )
+
+    assert score <= 90
+
+
+def test_job_without_recognisable_skills_cannot_trigger_instant_alert():
+    score, _ = calculate_match_score(
+        make_profile(),
+        make_job(required_skills="[]"),
+    )
+
+    assert score == 89
+
+
+def test_remote_job_without_stated_countries_is_capped_at_89():
+    score, _ = calculate_match_score(
+        make_profile(),
+        make_job(
+            location="Remote",
+            remote_eligibility=None,
+        ),
+    )
+
+    assert score == 89
+
+
+def test_profile_without_skills_loses_skill_points():
+    score, reasons = calculate_match_score(
+        make_profile(skills=None),
+        make_job(),
+    )
+
+    assert score <= 90
+    assert "Candidate skills are missing" in reasons

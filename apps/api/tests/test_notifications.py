@@ -1,6 +1,7 @@
 import pytest
 from datetime import datetime, timezone
 
+from app.models.career_profile import CareerProfile
 from app.models.job import Job
 from app.models.job_match import JobMatch
 from app.models.notification import Notification
@@ -22,6 +23,16 @@ def user(db):
     db.add(test_user)
     db.commit()
     db.refresh(test_user)
+
+    db.add(
+        CareerProfile(
+            user_id=test_user.id,
+            professional_title="Frontend Developer",
+            skills='["React", "TypeScript"]',
+            years_of_experience=3,
+        )
+    )
+    db.commit()
 
     return test_user
 
@@ -424,3 +435,98 @@ def test_min_notification_score_configuration(
     monkeypatch.setenv("NOTIFICATION_MIN_SCORE", value)
 
     assert get_min_notification_score() == expected
+
+
+def test_no_notification_without_career_profile(db, job):
+    profileless_user = User(
+        email="no-profile@example.com",
+        timezone="UTC",
+    )
+    db.add(profileless_user)
+    db.commit()
+
+    match = create_match(
+        db=db,
+        user_id=profileless_user.id,
+        job_id=job.id,
+    )
+
+    assert create_notification_for_match(db=db, match=match) is None
+
+
+def test_no_notification_for_job_outside_candidate_field(db, user):
+    sales_job = Job(
+        title="Account Executive",
+        company="Sales Co",
+        description="Close deals. 2+ years of experience.",
+        required_skills="[]",
+        required_experience=2,
+        location="Remote",
+        remote_eligibility="Worldwide",
+        work_type="remote",
+        application_url="https://example.com/jobs/sales",
+        source="test",
+        fingerprint="sales-job-fingerprint",
+    )
+    db.add(sales_job)
+    db.commit()
+
+    match = create_match(
+        db=db,
+        user_id=user.id,
+        job_id=sales_job.id,
+        score=95,
+    )
+
+    assert create_notification_for_match(db=db, match=match) is None
+
+
+def test_notification_when_only_skills_overlap(db, user):
+    react_job = Job(
+        title="Software Engineer",
+        company="Product Co",
+        description="Build product features.",
+        required_skills='["React", "Python"]',
+        location="Remote",
+        remote_eligibility="Worldwide",
+        work_type="remote",
+        application_url="https://example.com/jobs/swe",
+        source="test",
+        fingerprint="skill-overlap-fingerprint",
+    )
+    db.add(react_job)
+    db.commit()
+
+    match = create_match(
+        db=db,
+        user_id=user.id,
+        job_id=react_job.id,
+        score=75,
+    )
+
+    assert create_notification_for_match(db=db, match=match) is not None
+
+
+def test_no_notification_when_job_alerts_off(db, user, job):
+    user.job_alerts_enabled = False
+    db.commit()
+
+    match = create_match(db=db, user_id=user.id, job_id=job.id, score=95)
+
+    assert create_notification_for_match(db=db, match=match) is None
+
+
+def test_high_match_goes_to_digest_when_high_match_alerts_off(
+    db,
+    user,
+    job,
+):
+    user.high_match_alerts_enabled = False
+    db.commit()
+
+    match = create_match(db=db, user_id=user.id, job_id=job.id, score=95)
+
+    notification = create_notification_for_match(db=db, match=match)
+
+    assert notification is not None
+    assert notification.notification_type == "digest"

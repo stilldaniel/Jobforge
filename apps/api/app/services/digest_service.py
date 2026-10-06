@@ -4,6 +4,7 @@ import os
 from sqlalchemy.orm import Session
 
 from app.models.notification import Notification
+from app.models.user import User
 from app.services.email_delivery import EmailDelivery
 from app.services.notification_service import (
     mark_notification_as_sent,
@@ -80,11 +81,66 @@ def handle_delivery_failure(
     return False
 
 
+def mark_notification_as_skipped(
+    notification: Notification,
+) -> None:
+    """
+    Mark a notification as not emailed because of the user's
+    preferences. It still appears in the app.
+    """
+
+    notification.status = "skipped"
+    notification.last_error = None
+
+
+def _group_by_user(
+    notifications: list[Notification],
+) -> dict[int, list[Notification]]:
+    notifications_by_user: dict[int, list[Notification]] = {}
+
+    for notification in notifications:
+        notifications_by_user.setdefault(
+            notification.user_id,
+            [],
+        ).append(notification)
+
+    return notifications_by_user
+
+
+def _unsupported_channel_error(
+    notifications: list[Notification],
+) -> str | None:
+    unsupported_channels = sorted(
+        {
+            notification.channel
+            for notification in notifications
+            if notification.channel != "email"
+        }
+    )
+
+    if not unsupported_channels:
+        return None
+
+    return (
+        "Unsupported notification channel: "
+        + ", ".join(unsupported_channels)
+    )
+
+
 def process_immediate_notifications(
     db: Session,
 ) -> dict:
     """
     Process pending immediate notifications only.
+
+    All of a user's pending immediate notifications are sent together:
+    a single match uses the single-job email, several matches found in
+    the same cycle share one email.
+
+    User preferences are checked at send time, so changes made after a
+    match was found still apply:
+        - high-match alerts off: the matches move to the daily digest
+        - email notifications off: nothing is emailed (still in-app)
 
     Failed notifications remain pending until they reach
     the maximum number of delivery attempts.
@@ -109,61 +165,89 @@ def process_immediate_notifications(
             "notifications_processed": 0,
             "notifications_sent": 0,
             "notifications_failed": 0,
+            "notifications_skipped": 0,
         }
 
     max_attempts = get_max_notification_attempts()
 
+    notifications_processed = 0
     notifications_sent = 0
     notifications_failed = 0
+    notifications_skipped = 0
 
-    for notification in notifications:
-        notification.attempts += 1
+    delivery: EmailDelivery | None = None
+
+    for user_id, user_notifications in _group_by_user(
+        notifications
+    ).items():
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if user and not user.high_match_alerts_enabled:
+            for notification in user_notifications:
+                notification.notification_type = "digest"
+
+            continue
+
+        notifications_processed += len(user_notifications)
+
+        if user and not user.email_notifications_enabled:
+            for notification in user_notifications:
+                mark_notification_as_skipped(notification)
+
+            notifications_skipped += len(user_notifications)
+            continue
+
+        for notification in user_notifications:
+            notification.attempts += 1
 
         try:
-            if notification.channel == "email":
-                delivery = EmailDelivery()
-            else:
-                raise ValueError(
-                    f"Unsupported notification channel: "
-                    f"{notification.channel}"
-                )
-
-            delivered = delivery.send(
-                db=db,
-                notification=notification,
+            channel_error = _unsupported_channel_error(
+                user_notifications
             )
 
-            if delivered:
+            if channel_error:
+                raise ValueError(channel_error)
+
+            if delivery is None:
+                delivery = EmailDelivery()
+
+            if len(user_notifications) == 1:
+                delivered = delivery.send(
+                    db=db,
+                    notification=user_notifications[0],
+                )
+            else:
+                delivered = delivery.send_high_match_batch(
+                    db=db,
+                    user_id=user_id,
+                    notifications=user_notifications,
+                )
+
+            error = None if delivered else "Notification delivery failed."
+
+        except Exception as exc:
+            logger.exception(
+                "Immediate notification delivery failed | "
+                "user_id=%s | notifications=%s",
+                user_id,
+                len(user_notifications),
+            )
+
+            error = str(exc)
+
+        for notification in user_notifications:
+            if error is None:
                 mark_notification_as_sent(
                     db=db,
                     notification=notification,
                 )
-
                 notifications_sent += 1
+                continue
 
-            else:
-                permanently_failed = handle_delivery_failure(
-                    notification=notification,
-                    error="Notification delivery failed.",
-                    max_attempts=max_attempts,
-                )
-
-                if permanently_failed:
-                    notifications_failed += 1
-
-        except Exception as exc:
             permanently_failed = handle_delivery_failure(
                 notification=notification,
-                error=str(exc),
+                error=error,
                 max_attempts=max_attempts,
-            )
-
-            logger.exception(
-                "Immediate notification delivery failed | "
-                "notification_id=%s | attempt=%s/%s",
-                notification.id,
-                notification.attempts,
-                max_attempts,
             )
 
             if permanently_failed:
@@ -172,9 +256,10 @@ def process_immediate_notifications(
     db.commit()
 
     return {
-        "notifications_processed": len(notifications),
+        "notifications_processed": notifications_processed,
         "notifications_sent": notifications_sent,
         "notifications_failed": notifications_failed,
+        "notifications_skipped": notifications_skipped,
     }
 
 
@@ -186,6 +271,9 @@ def process_digest_notifications(
 
     All pending digest notifications belonging to the same user
     are combined into a single email.
+
+    Users who turned off the daily digest or email notifications are
+    skipped; their notifications stay visible in the app.
 
     Failed digest notifications remain pending until the group
     reaches the maximum number of delivery attempts.
@@ -209,6 +297,7 @@ def process_digest_notifications(
             "notifications_processed": 0,
             "notifications_sent": 0,
             "notifications_failed": 0,
+            "notifications_skipped": 0,
         }
 
     notifications_by_user: dict[
@@ -228,11 +317,25 @@ def process_digest_notifications(
     notifications_processed = 0
     notifications_sent = 0
     notifications_failed = 0
+    notifications_skipped = 0
 
     delivery = EmailDelivery()
 
     for user_id, user_notifications in notifications_by_user.items():
         users_processed += 1
+
+        user = db.query(User).filter(User.id == user_id).first()
+
+        if user and not (
+            user.digest_notifications_enabled
+            and user.email_notifications_enabled
+        ):
+            for notification in user_notifications:
+                mark_notification_as_skipped(notification)
+
+            notifications_processed += len(user_notifications)
+            notifications_skipped += len(user_notifications)
+            continue
 
         for notification in user_notifications:
             notification.attempts += 1
@@ -296,4 +399,5 @@ def process_digest_notifications(
         "notifications_processed": notifications_processed,
         "notifications_sent": notifications_sent,
         "notifications_failed": notifications_failed,
+        "notifications_skipped": notifications_skipped,
     }

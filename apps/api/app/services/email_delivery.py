@@ -88,6 +88,55 @@ class EmailDelivery(NotificationDelivery):
         pending digest job match.
         """
 
+        count = len(notifications)
+        plural = "es" if count != 1 else ""
+
+        return self._send_match_list(
+            db=db,
+            user_id=user_id,
+            notifications=notifications,
+            subject=f"JobForge — {count} new job match{plural}",
+            heading="Your Job Digest",
+            intro=f"You have {count} new job match{plural}.",
+            log_label="DIGEST EMAIL SENT",
+        )
+
+    def send_high_match_batch(
+        self,
+        db: Session,
+        user_id: int,
+        notifications: list[Notification],
+    ) -> bool:
+        """
+        Send one email for several high-quality matches found in the
+        same monitoring cycle, instead of one email per job.
+        """
+
+        count = len(notifications)
+
+        return self._send_match_list(
+            db=db,
+            user_id=user_id,
+            notifications=notifications,
+            subject=f"JobForge — {count} new high-quality job matches",
+            heading="New high-quality job matches",
+            intro=(
+                f"We found {count} new jobs that closely match "
+                f"your career profile."
+            ),
+            log_label="HIGH MATCH EMAIL SENT",
+        )
+
+    def _send_match_list(
+        self,
+        db: Session,
+        user_id: int,
+        notifications: list[Notification],
+        subject: str,
+        heading: str,
+        intro: str,
+        log_label: str,
+    ) -> bool:
         user = (
             db.query(User)
             .filter(User.id == user_id)
@@ -96,7 +145,7 @@ class EmailDelivery(NotificationDelivery):
 
         if not user:
             raise ValueError(
-                f"User {user_id} not found for digest delivery."
+                f"User {user_id} not found for email delivery."
             )
 
         if not notifications:
@@ -121,24 +170,23 @@ class EmailDelivery(NotificationDelivery):
 
         html_content = self._build_digest_html(
             notifications=notifications,
+            heading=heading,
+            intro=intro,
         )
 
         params = {
             "from": from_email,
             "to": [user.email],
-            "subject": (
-                f"JobForge — {len(notifications)} "
-                f"new job match"
-                f"{'es' if len(notifications) != 1 else ''}"
-            ),
+            "subject": subject,
             "html": html_content,
         }
 
         email = resend.Emails.send(params)
 
         logger.info(
-            "DIGEST EMAIL SENT | user_id=%s | "
+            "%s | user_id=%s | "
             "recipient=%s | notifications=%s | email_id=%s",
+            log_label,
             user_id,
             user.email,
             len(notifications),
@@ -279,6 +327,8 @@ class EmailDelivery(NotificationDelivery):
     @staticmethod
     def _build_digest_html(
         notifications: list[Notification],
+        heading: str = "Your Job Digest",
+        intro: str | None = None,
     ) -> str:
         job_cards = []
 
@@ -386,6 +436,15 @@ class EmailDelivery(NotificationDelivery):
 
         job_count = len(notifications)
 
+        if intro is None:
+            intro = (
+                f"You have {job_count} new job "
+                f"match{'es' if job_count != 1 else ''}."
+            )
+
+        heading = html.escape(heading)
+        intro = html.escape(intro)
+
         return f"""
         <!DOCTYPE html>
         <html>
@@ -396,7 +455,7 @@ class EmailDelivery(NotificationDelivery):
                 content="width=device-width,
                 initial-scale=1.0"
             >
-            <title>JobForge Job Digest</title>
+            <title>JobForge — {heading}</title>
         </head>
 
         <body
@@ -441,7 +500,7 @@ class EmailDelivery(NotificationDelivery):
                             font-size: 20px;
                         "
                     >
-                        Your Job Digest
+                        {heading}
                     </h2>
 
                     <p
@@ -451,8 +510,7 @@ class EmailDelivery(NotificationDelivery):
                             color: #4b5563;
                         "
                     >
-                        You have {job_count} new job
-                        match{"es" if job_count != 1 else ""}.
+                        {intro}
                     </p>
 
                     {jobs_html}

@@ -40,7 +40,6 @@ class CompanyBoardJobSource(JobSource):
     ENV_VAR: str
 
     filter_by_relevance = True
-    min_interval_minutes = 60
 
     def __init__(self, boards: list[str] | None = None):
         self.boards = (

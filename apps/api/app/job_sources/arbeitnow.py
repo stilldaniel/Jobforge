@@ -18,6 +18,8 @@ class ArbeitnowJobSource(JobSource):
     BASE_URL = "https://www.arbeitnow.com/api/job-board-api"
 
     filter_by_relevance = True
+    # Arbeitnow refreshes its feed hourly, so fetching more often
+    # finds nothing new.
     min_interval_minutes = 60
 
     def fetch_jobs(self) -> list[DiscoveredJob]:

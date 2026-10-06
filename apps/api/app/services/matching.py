@@ -250,7 +250,7 @@ def _is_remote_job(job: Any) -> bool:
 def _title_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str]:
+) -> tuple[int | None, str]:
 
     candidate_title = _normalize_text(
         getattr(
@@ -349,7 +349,7 @@ def _title_score(
 def _skills_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str]:
+) -> tuple[int | None, str]:
 
     candidate_skills = _normalize_skills(
         getattr(
@@ -367,9 +367,12 @@ def _skills_score(
         )
     )
 
+    # No recognisable skills in the job text is not evidence of a fit,
+    # so it earns no points; otherwise unrelated jobs (sales, support)
+    # would score close to genuine matches.
     if not required_skills:
         return (
-            20,
+            None,
             "No specific required skills listed",
         )
 
@@ -427,7 +430,7 @@ def _skills_score(
 def _experience_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str, bool]:
+) -> tuple[int | None, str, bool]:
 
     candidate_experience = getattr(
         profile,
@@ -443,7 +446,7 @@ def _experience_score(
 
     if required_experience is None:
         return (
-            8,
+            None,
             "No specific experience requirement",
             False,
         )
@@ -459,7 +462,7 @@ def _experience_score(
 
     except (TypeError, ValueError):
         return (
-            5,
+            None,
             "Experience requirement could not be evaluated",
             False,
         )
@@ -511,7 +514,7 @@ def _experience_score(
 def _work_type_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str, bool]:
+) -> tuple[int | None, str, bool]:
 
     preferred = _normalize_text(
         getattr(
@@ -531,14 +534,14 @@ def _work_type_score(
 
     if not preferred:
         return (
-            5,
+            None,
             "No preferred work type specified",
             False,
         )
 
     if not actual:
         return (
-            5,
+            None,
             "Job work type is not specified",
             False,
         )
@@ -586,7 +589,7 @@ def _work_type_score(
 def _location_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str, bool]:
+) -> tuple[int | None, str, bool]:
 
     candidate_location = _normalize_text(
         getattr(
@@ -681,7 +684,7 @@ def _location_score(
 
         # Remote, but geographic eligibility is unknown.
         return (
-            2,
+            None,
             "Remote eligibility is not geographically specified",
             False,
         )
@@ -692,7 +695,7 @@ def _location_score(
 
     if not job_location:
         return (
-            5,
+            None,
             "Job location is not specified",
             False,
         )
@@ -733,7 +736,7 @@ def _location_score(
 def _salary_score(
     profile: Any,
     job: Any,
-) -> tuple[int, str, bool]:
+) -> tuple[int | None, str, bool]:
 
     minimum_salary = getattr(
         profile,
@@ -764,7 +767,7 @@ def _salary_score(
         and maximum_salary is None
     ):
         return (
-            5,
+            None,
             "No salary preference specified",
             False,
         )
@@ -774,7 +777,7 @@ def _salary_score(
         and salary_max is None
     ):
         return (
-            5,
+            None,
             "Job salary is not specified",
             False,
         )
@@ -787,7 +790,7 @@ def _salary_score(
         or getattr(job, "salary_period", None)
     ):
         return (
-            5,
+            None,
             "Job salary could not be compared with your preference",
             False,
         )
@@ -819,7 +822,7 @@ def _salary_score(
 
     except (TypeError, ValueError):
         return (
-            5,
+            None,
             "Salary information could not be evaluated",
             False,
         )
@@ -868,120 +871,85 @@ def calculate_match_score(
     profile: Any,
     job: Any,
 ) -> tuple[int, list[str]]:
+    """
+    Score how well a job matches a career profile, from 0 to 100.
 
-    score = 0
+    Only factors the job actually states are scored, and the result is
+    scaled to 100. A job that doesn't mention salary or years of
+    experience is judged on what it does say, rather than losing points
+    for the missing information. Factors the job states but the
+    candidate doesn't match still cost points.
+    """
+
     reasons: list[str] = []
+    earned = 0
+    possible = 0
+
+    def add(
+        points: int | None,
+        reason: str,
+        weight: int,
+    ) -> None:
+        nonlocal earned, possible
+
+        reasons.append(reason)
+
+        if points is None:
+            return
+
+        earned += points
+        possible += weight
 
     # --------------------------------------------------------
-    # TITLE
+    # FACTORS
     # --------------------------------------------------------
 
-    title_points, title_reason = _title_score(
+    title_points, title_reason = _title_score(profile, job)
+    add(title_points, title_reason, TITLE_WEIGHT)
+
+    skill_points, skill_reason = _skills_score(profile, job)
+    add(skill_points, skill_reason, SKILLS_WEIGHT)
+
+    experience_points, experience_reason, _ = _experience_score(
         profile,
         job,
     )
+    add(experience_points, experience_reason, EXPERIENCE_WEIGHT)
 
-    score += title_points
-    reasons.append(title_reason)
-
-    # --------------------------------------------------------
-    # SKILLS
-    # --------------------------------------------------------
-
-    skill_points, skill_reason = _skills_score(
+    work_type_points, work_type_reason, _ = _work_type_score(
         profile,
         job,
     )
+    add(work_type_points, work_type_reason, WORK_TYPE_WEIGHT)
 
-    score += skill_points
-    reasons.append(skill_reason)
-
-    # --------------------------------------------------------
-    # EXPERIENCE
-    # --------------------------------------------------------
-
-    (
-        experience_points,
-        experience_reason,
-        experience_problem,
-    ) = _experience_score(
+    location_points, location_reason, location_problem = _location_score(
         profile,
         job,
     )
+    add(location_points, location_reason, LOCATION_WEIGHT)
 
-    score += experience_points
-    reasons.append(experience_reason)
-
-    # --------------------------------------------------------
-    # WORK TYPE
-    # --------------------------------------------------------
-
-    (
-        work_type_points,
-        work_type_reason,
-        work_type_problem,
-    ) = _work_type_score(
+    salary_points, salary_reason, salary_problem = _salary_score(
         profile,
         job,
     )
+    add(salary_points, salary_reason, SALARY_WEIGHT)
 
-    score += work_type_points
-    reasons.append(work_type_reason)
-
-    # --------------------------------------------------------
-    # LOCATION
-    # --------------------------------------------------------
-
-    (
-        location_points,
-        location_reason,
-        location_problem,
-    ) = _location_score(
-        profile,
-        job,
-    )
-
-    score += location_points
-    reasons.append(location_reason)
-
-    # --------------------------------------------------------
-    # SALARY
-    # --------------------------------------------------------
-
-    (
-        salary_points,
-        salary_reason,
-        salary_problem,
-    ) = _salary_score(
-        profile,
-        job,
-    )
-
-    score += salary_points
-    reasons.append(salary_reason)
+    score = round(earned / possible * 100) if possible else 0
 
     # ========================================================
     # ELIGIBILITY CAPS
     # ========================================================
 
-    # Experience is deliberately NOT included here.
+    # Experience and work type are deliberately NOT hard failures:
+    # they reduce the score but don't make the job ineligible.
     #
-    # A candidate being below the experience requirement
-    # reduces the score but does not make the job ineligible.
-    #
-    # Work type is also deliberately NOT included here.
-    #
-    # Geographic incompatibility and salary below the
-    # candidate's minimum remain hard eligibility failures.
+    # Geographic incompatibility and salary below the candidate's
+    # minimum remain hard eligibility failures.
 
     hard_ineligible = (
         location_problem
         or salary_problem
     )
-
-    # --------------------------------------------------------
-    # Geographic / salary incompatibility
-    # --------------------------------------------------------
 
     if hard_ineligible:
         score = min(
@@ -995,11 +963,13 @@ def calculate_match_score(
         )
 
     # --------------------------------------------------------
-    # Unknown remote eligibility
-    #
-    # Don't allow an unknown employer policy to trigger an
-    # immediate >90 notification.
+    # Not enough information for an immediate notification (>90)
     # --------------------------------------------------------
+    #
+    # - Remote with unknown geography: many "remote" jobs only hire
+    #   in one country, so don't alert until eligibility is known.
+    # - No recognisable skills: the job can't be judged on what the
+    #   role actually involves.
 
     job_is_remote = _is_remote_job(job)
 
@@ -1019,8 +989,10 @@ def calculate_match_score(
         )
     )
 
+    skills_unknown = skill_points is None
+
     if (
-        geographic_scope_unknown
+        (geographic_scope_unknown or skills_unknown)
         and not hard_ineligible
     ):
         score = min(
@@ -1036,7 +1008,7 @@ def calculate_match_score(
         0,
         min(
             100,
-            round(score),
+            score,
         ),
     )
 

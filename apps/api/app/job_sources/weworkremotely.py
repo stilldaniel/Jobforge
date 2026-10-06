@@ -18,7 +18,6 @@ class WeWorkRemotelyJobSource(JobSource):
     FEED_URL = "https://weworkremotely.com/remote-jobs.rss"
 
     filter_by_relevance = True
-    min_interval_minutes = 60
 
     def fetch_jobs(self) -> list[DiscoveredJob]:
         root = ElementTree.fromstring(get_text(self.FEED_URL))

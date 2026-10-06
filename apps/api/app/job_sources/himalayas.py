@@ -21,7 +21,6 @@ class HimalayasJobSource(JobSource):
     SEARCH_URL = "https://himalayas.app/jobs/api/search"
 
     filter_by_relevance = True
-    min_interval_minutes = 60
 
     def __init__(self, limit: int = 20):
         self.limit = limit

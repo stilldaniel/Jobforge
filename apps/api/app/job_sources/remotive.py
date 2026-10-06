@@ -20,6 +20,8 @@ class RemotiveJobSource(JobSource):
     BASE_URL = "https://remotive.com/api/remote-jobs"
 
     filter_by_relevance = True
+    # Remotive's terms: at most 4 requests a day. Its jobs are also
+    # published with a 24-hour delay, so frequent polling gains nothing.
     min_interval_minutes = 360
 
     def __init__(self, limit: int = 50):

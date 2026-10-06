@@ -19,7 +19,6 @@ class RemoteOKJobSource(JobSource):
     BASE_URL = "https://remoteok.com/api"
 
     filter_by_relevance = True
-    min_interval_minutes = 60
 
     def fetch_jobs(self) -> list[DiscoveredJob]:
         data = get_json(self.BASE_URL)

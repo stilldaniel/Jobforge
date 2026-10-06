@@ -46,7 +46,7 @@ class SuccessfulJobSource(JobSource):
     def fetch_jobs(self):
         return [
             DiscoveredJob(
-                title="Successful Source Developer",
+                title="Successful Source Frontend Developer",
                 company="Working Source",
                 description="A test job from a successful source.",
                 location="Worldwide",
@@ -68,9 +68,10 @@ def test_first_monitoring_run_creates_jobs_matches_and_notifications(db):
 
     assert result["new_jobs"] == 12
     assert result["matches_created"] == 12
-    # The US-only and London on-site jobs are ineligible for a
-    # candidate in Lagos, so they score below the notification minimum.
-    assert result["notifications_created"] == 10
+    # Not notified: the US-only and London on-site jobs (ineligible
+    # for a candidate in Lagos, so below the minimum score) and the
+    # Backend Developer job (outside a frontend developer's field).
+    assert result["notifications_created"] == 9
 
     jobs = db.query(Job).all()
     matches = db.query(JobMatch).all()
@@ -78,7 +79,7 @@ def test_first_monitoring_run_creates_jobs_matches_and_notifications(db):
 
     assert len(jobs) == 12
     assert len(matches) == 12
-    assert len(notifications) == 10
+    assert len(notifications) == 9
 
     assert all(match.user_id == profile.user_id for match in matches)
 
@@ -92,7 +93,7 @@ def test_second_monitoring_run_does_not_create_duplicate_matches_or_notification
 
     assert first_result["new_jobs"] == 12
     assert first_result["matches_created"] == 12
-    assert first_result["notifications_created"] == 10
+    assert first_result["notifications_created"] == 9
 
     second_result = run_mock_monitor(db)
 
@@ -103,7 +104,7 @@ def test_second_monitoring_run_does_not_create_duplicate_matches_or_notification
 
     assert db.query(Job).count() == 12
     assert db.query(JobMatch).count() == 12
-    assert db.query(Notification).count() == 10
+    assert db.query(Notification).count() == 9
 
 
 def test_monitoring_handles_multiple_career_profiles(db):
@@ -114,11 +115,11 @@ def test_monitoring_handles_multiple_career_profiles(db):
 
     assert result["new_jobs"] == 12
     assert result["matches_created"] == 24
-    assert result["notifications_created"] == 20
+    assert result["notifications_created"] == 18
 
     assert db.query(Job).count() == 12
     assert db.query(JobMatch).count() == 24
-    assert db.query(Notification).count() == 20
+    assert db.query(Notification).count() == 18
 
     user_one_matches = (
         db.query(JobMatch)
@@ -142,7 +143,7 @@ def test_existing_job_updates_do_not_create_new_notifications(db):
     first_result = run_mock_monitor(db)
 
     assert first_result["new_jobs"] == 12
-    assert first_result["notifications_created"] == 10
+    assert first_result["notifications_created"] == 9
 
     job = (
         db.query(Job)
@@ -170,7 +171,7 @@ def test_existing_job_updates_do_not_create_new_notifications(db):
     assert updated_job is not None
     assert updated_job.fingerprint == original_fingerprint
 
-    assert db.query(Notification).count() == 10
+    assert db.query(Notification).count() == 9
 
 
 def test_notifications_use_score_threshold(db):
@@ -282,8 +283,6 @@ def test_low_scoring_matches_do_not_create_notifications(db):
     for match in db.query(JobMatch).all():
         if match.score < 60:
             assert match.id not in notified_match_ids
-        else:
-            assert match.id in notified_match_ids
 
 
 def test_minimum_notification_score_is_configurable(db, monkeypatch):
@@ -292,4 +291,27 @@ def test_minimum_notification_score_is_configurable(db, monkeypatch):
 
     result = run_mock_monitor(db)
 
-    assert result["notifications_created"] == 12
+    # Everything in the candidate's field, even ineligible jobs;
+    # only the Backend Developer job is still excluded.
+    assert result["notifications_created"] == 11
+
+
+def test_jobs_outside_candidate_field_are_not_notified(db):
+    make_profile(db, user_id=1)
+
+    run_mock_monitor(db)
+
+    backend_match = (
+        db.query(JobMatch)
+        .join(Job)
+        .filter(Job.company == "DigestTest Labs")
+        .one()
+    )
+
+    assert backend_match.score >= 60
+    assert (
+        db.query(Notification)
+        .filter(Notification.job_match_id == backend_match.id)
+        .count()
+        == 0
+    )
