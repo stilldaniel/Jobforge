@@ -64,6 +64,16 @@ class Job(Base):
         nullable=True,
     )
 
+    salary_currency: Mapped[str | None] = mapped_column(
+        String(3),
+        nullable=True,
+    )
+
+    salary_period: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
     application_url: Mapped[str] = mapped_column(
         String(1000),
         nullable=False,
@@ -78,6 +88,14 @@ class Job(Base):
         String(64),
         nullable=False,
         unique=True,
+        index=True,
+    )
+
+    # Company + title key used to recognise the same job
+    # listed on more than one platform.
+    dedupe_key: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
         index=True,
     )
 

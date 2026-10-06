@@ -1,5 +1,6 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,9 +17,6 @@ import {
 import styles from "./AppShell.module.css";
 import { getNotifications } from "@/lib/api/notifications";
 
-const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "3",
-);
 
 const navigation = [
   {
@@ -33,7 +31,7 @@ const navigation = [
   },
   {
     label: "Saved Jobs",
-    href: "/saved",
+    href: "/saved-jobs",
     icon: Bookmark,
   },
   {

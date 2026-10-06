@@ -46,10 +46,15 @@ export interface Job {
   title: string;
   company: string;
   description: string | null;
+  required_skills: string | null;
+  required_experience: number | null;
   location: string | null;
+  remote_eligibility: string | null;
   work_type: string | null;
   salary_min: number | null;
   salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
   application_url: string;
   source: string;
   fingerprint: string;
@@ -90,6 +95,8 @@ export interface MatchedJob {
   work_type: string | null;
   salary_min: number | null;
   salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
   application_url: string;
 
   created_at: string;

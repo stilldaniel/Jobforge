@@ -23,10 +23,15 @@ class JobResponse(BaseModel):
     title: str
     company: str
     description: str | None
+    required_skills: str | None
+    required_experience: int | None
     location: str | None
+    remote_eligibility: str | None
     work_type: str | None
     salary_min: int | None
     salary_max: int | None
+    salary_currency: str | None
+    salary_period: str | None
     application_url: str
     source: str
     fingerprint: str

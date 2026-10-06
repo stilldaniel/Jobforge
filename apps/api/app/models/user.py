@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, String, true
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -29,6 +29,30 @@ class User(Base):
     timezone: Mapped[str] = mapped_column(
         String(100),
         nullable=False,
+    )
+
+    job_alerts_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
+
+    high_match_alerts_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
+
+    digest_notifications_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=True,
+        server_default=true(),
+    )
+
+    email_notifications_enabled: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=True,
+        server_default=true(),
     )
 
     created_at: Mapped[datetime] = mapped_column(

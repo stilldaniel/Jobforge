@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.job import Job
 from app.models.job_match import JobMatch
+from app.models.user import User
 from app.schemas.job_match import MatchedJobResponse
 from app.services.match_jobs import generate_job_matches
 
@@ -35,6 +36,8 @@ def serialize_match(match: JobMatch) -> dict:
         "work_type": job.work_type,
         "salary_min": job.salary_min,
         "salary_max": job.salary_max,
+        "salary_currency": job.salary_currency,
+        "salary_period": job.salary_period,
         "application_url": job.application_url,
 
         "created_at": match.created_at,
@@ -81,6 +84,14 @@ def get_user_matches(
     user_id: int,
     db: Session = Depends(get_db),
 ):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
     matches = (
         db.query(JobMatch)
         .join(Job, Job.id == JobMatch.job_id)
@@ -88,12 +99,6 @@ def get_user_matches(
         .order_by(JobMatch.score.desc())
         .all()
     )
-
-    if not matches:
-        raise HTTPException(
-            status_code=404,
-            detail="No job matches found for this user",
-        )
 
     return [serialize_match(match) for match in matches]
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import { formatSalary, formatSource } from "@/lib/format";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -18,7 +20,6 @@ import type { Job, MatchedJob } from "@/types/api";
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(process.env.NEXT_PUBLIC_DEV_USER_ID || "3");
 
 type SortOption = "newest" | "highest-match" | "salary";
 
@@ -532,21 +533,11 @@ export default function JobsPage() {
                               <span>{job.work_type}</span>
                             )}
 
-                            {(job.salary_min !== null ||
-                              job.salary_max !== null) && (
-                              <span>
-                                {job.salary_min !== null
-                                  ? `$${job.salary_min.toLocaleString()}`
-                                  : ""}
-                                {job.salary_min !== null &&
-                                job.salary_max !== null
-                                  ? " – "
-                                  : ""}
-                                {job.salary_max !== null
-                                  ? `$${job.salary_max.toLocaleString()}`
-                                  : ""}
-                              </span>
+                            {formatSalary(job) && (
+                              <span>{formatSalary(job)}</span>
                             )}
+
+                            <span>via {formatSource(job.source)}</span>
                           </div>
 
                           {match?.match_reasons && (

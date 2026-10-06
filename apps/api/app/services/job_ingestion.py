@@ -1,33 +1,56 @@
+import logging
+from typing import NamedTuple
+
 from sqlalchemy.orm import Session
 
-from app.job_sources.base import JobSource
+from app.job_sources.base import DiscoveredJob, JobSource
 from app.models.job import Job
-from app.services.job_fingerprint import generate_job_fingerprint
+from app.services.job_fingerprint import (
+    generate_dedupe_key,
+    generate_job_fingerprint,
+)
 from app.services.job_requirements import extract_requirements
+
+
+logger = logging.getLogger(__name__)
+
+
+class IngestionResult(NamedTuple):
+    created_jobs: list[Job]
+    updated_jobs: list[Job]
+    # Jobs skipped because another platform already supplied them.
+    duplicate_jobs: int
 
 
 def ingest_jobs(
     db: Session,
     source: JobSource,
-) -> tuple[list[Job], list[Job]]:
+    discovered_jobs: list[DiscoveredJob] | None = None,
+) -> IngestionResult:
     """
     Fetch jobs from a source and synchronize them with the database.
 
-    Returns:
-        tuple:
-            - created_jobs: newly created jobs
-            - updated_jobs: existing jobs that were updated
+    A job is matched to an existing record in two ways:
+        - Same fingerprint (title + company + URL): the same listing
+          seen again, so the record is updated.
+        - Same dedupe key (title + company) from a different source:
+          the same job posted on another platform, so it is skipped.
+
+    Pass `discovered_jobs` to ingest jobs that were already fetched.
     """
 
-    discovered_jobs = source.fetch_jobs()
+    if discovered_jobs is None:
+        discovered_jobs = source.fetch_jobs()
 
     created_jobs: list[Job] = []
     updated_jobs: list[Job] = []
+    duplicate_jobs = 0
+
+    seen_fingerprints: set[str] = set()
 
     for discovered_job in discovered_jobs:
-
         # --------------------------------------------------
-        # GENERATE FINGERPRINT
+        # GENERATE KEYS
         # --------------------------------------------------
 
         fingerprint = generate_job_fingerprint(
@@ -36,11 +59,24 @@ def ingest_jobs(
             application_url=discovered_job.application_url,
         )
 
-        print(
-            f"[INGEST] {discovered_job.company} | "
-            f"{discovered_job.title} | "
-            f"{discovered_job.application_url} | "
-            f"{fingerprint}"
+        dedupe_key = generate_dedupe_key(
+            title=discovered_job.title,
+            company=discovered_job.company,
+        )
+
+        # Feeds that are searched once per query can return the
+        # same listing more than once.
+        if fingerprint in seen_fingerprints:
+            continue
+
+        seen_fingerprints.add(fingerprint)
+
+        logger.debug(
+            "[INGEST] %s | %s | %s | %s",
+            discovered_job.company,
+            discovered_job.title,
+            discovered_job.application_url,
+            fingerprint,
         )
 
         # --------------------------------------------------
@@ -67,35 +103,31 @@ def ingest_jobs(
         # --------------------------------------------------
 
         if existing_job:
-
-            existing_job.title = discovered_job.title
-            existing_job.company = discovered_job.company
-            existing_job.description = discovered_job.description
-
-            existing_job.required_skills = requirements[
-                "required_skills"
-            ]
-
-            existing_job.required_experience = requirements[
-                "required_experience"
-            ]
-
-            existing_job.location = discovered_job.location
-
-            existing_job.remote_eligibility = (
-                discovered_job.remote_eligibility
+            _apply_discovered_fields(
+                existing_job,
+                discovered_job,
+                requirements,
             )
-
-            existing_job.work_type = discovered_job.work_type
-            existing_job.salary_min = discovered_job.salary_min
-            existing_job.salary_max = discovered_job.salary_max
-            existing_job.application_url = (
-                discovered_job.application_url
-            )
-            existing_job.posted_at = discovered_job.posted_at
+            existing_job.dedupe_key = dedupe_key
 
             updated_jobs.append(existing_job)
+            continue
 
+        # --------------------------------------------------
+        # SAME JOB FROM ANOTHER PLATFORM
+        # --------------------------------------------------
+
+        cross_source_duplicate = (
+            db.query(Job.id)
+            .filter(
+                Job.dedupe_key == dedupe_key,
+                Job.source != discovered_job.source,
+            )
+            .first()
+        )
+
+        if cross_source_duplicate:
+            duplicate_jobs += 1
             continue
 
         # --------------------------------------------------
@@ -103,20 +135,15 @@ def ingest_jobs(
         # --------------------------------------------------
 
         job = Job(
-            title=discovered_job.title,
-            company=discovered_job.company,
-            description=discovered_job.description,
-            required_skills=requirements["required_skills"],
-            required_experience=requirements["required_experience"],
-            location=discovered_job.location,
-            remote_eligibility=discovered_job.remote_eligibility,
-            work_type=discovered_job.work_type,
-            salary_min=discovered_job.salary_min,
-            salary_max=discovered_job.salary_max,
-            application_url=discovered_job.application_url,
             source=discovered_job.source,
             fingerprint=fingerprint,
-            posted_at=discovered_job.posted_at,
+            dedupe_key=dedupe_key,
+        )
+
+        _apply_discovered_fields(
+            job,
+            discovered_job,
+            requirements,
         )
 
         db.add(job)
@@ -138,4 +165,29 @@ def ingest_jobs(
     for job in updated_jobs:
         db.refresh(job)
 
-    return created_jobs, updated_jobs
+    return IngestionResult(
+        created_jobs=created_jobs,
+        updated_jobs=updated_jobs,
+        duplicate_jobs=duplicate_jobs,
+    )
+
+
+def _apply_discovered_fields(
+    job: Job,
+    discovered_job: DiscoveredJob,
+    requirements: dict,
+) -> None:
+    job.title = discovered_job.title
+    job.company = discovered_job.company
+    job.description = discovered_job.description
+    job.required_skills = requirements["required_skills"]
+    job.required_experience = requirements["required_experience"]
+    job.location = discovered_job.location
+    job.remote_eligibility = discovered_job.remote_eligibility
+    job.work_type = discovered_job.work_type
+    job.salary_min = discovered_job.salary_min
+    job.salary_max = discovered_job.salary_max
+    job.salary_currency = discovered_job.salary_currency
+    job.salary_period = discovered_job.salary_period
+    job.application_url = discovered_job.application_url
+    job.posted_at = discovered_job.posted_at

@@ -1,3 +1,5 @@
+import time
+
 import app.services.scheduler as scheduler_module
 
 
@@ -45,7 +47,13 @@ def test_start_scheduler_is_idempotent(monkeypatch):
 
         assert len(jobs) == 2
 
-        # start_scheduler() performs one immediate monitoring run.
+        # The first monitoring run starts immediately, in the
+        # background, and start_scheduler() does not wait for it.
+        deadline = time.monotonic() + 5
+
+        while not monitoring_calls and time.monotonic() < deadline:
+            time.sleep(0.05)
+
         assert len(monitoring_calls) == 1
 
         # The digest job is scheduled but should not execute immediately.
@@ -95,6 +103,11 @@ def test_digest_can_be_disabled(monkeypatch):
         assert "jobforge_daily_digest" not in job_ids
 
         assert len(jobs) == 1
+
+        deadline = time.monotonic() + 5
+
+        while not monitoring_calls and time.monotonic() < deadline:
+            time.sleep(0.05)
 
         assert len(monitoring_calls) == 1
 

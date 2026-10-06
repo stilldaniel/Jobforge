@@ -1,5 +1,6 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -26,9 +27,6 @@ import type {
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "3",
-);
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<

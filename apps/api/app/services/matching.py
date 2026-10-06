@@ -779,6 +779,19 @@ def _salary_score(
             False,
         )
 
+    # Real job sources report a currency and period (normalised to
+    # yearly). Career profiles don't record either yet, so a yearly USD
+    # figure can't be compared with, say, a monthly NGN preference.
+    if (
+        getattr(job, "salary_currency", None)
+        or getattr(job, "salary_period", None)
+    ):
+        return (
+            5,
+            "Job salary could not be compared with your preference",
+            False,
+        )
+
     try:
         minimum_salary = (
             float(minimum_salary)

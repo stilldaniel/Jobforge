@@ -4,6 +4,32 @@ from datetime import datetime
 import httpx
 
 from app.job_sources.base import DiscoveredJob, JobSource
+from app.job_sources.common import MAX_SEARCH_QUERIES
+
+
+# Adzuna reports salaries per year in the local currency
+# of the country being searched.
+COUNTRY_CURRENCIES = {
+    "at": "EUR",
+    "au": "AUD",
+    "be": "EUR",
+    "br": "BRL",
+    "ca": "CAD",
+    "ch": "CHF",
+    "de": "EUR",
+    "es": "EUR",
+    "fr": "EUR",
+    "gb": "GBP",
+    "in": "INR",
+    "it": "EUR",
+    "mx": "MXN",
+    "nl": "EUR",
+    "nz": "NZD",
+    "pl": "PLN",
+    "sg": "SGD",
+    "us": "USD",
+    "za": "ZAR",
+}
 
 
 class AdzunaJobSource(JobSource):
@@ -45,6 +71,21 @@ class AdzunaJobSource(JobSource):
             )
 
     def fetch_jobs(self) -> list[DiscoveredJob]:
+        queries = (
+            self.search_queries[:MAX_SEARCH_QUERIES]
+            or [self.query]
+        )
+
+        discovered_jobs: list[DiscoveredJob] = []
+
+        for query in queries:
+            discovered_jobs.extend(
+                self._fetch_query(query)
+            )
+
+        return discovered_jobs
+
+    def _fetch_query(self, query: str) -> list[DiscoveredJob]:
         url = (
             f"{self.BASE_URL}/jobs/"
             f"{self.country}/search/1"
@@ -54,7 +95,7 @@ class AdzunaJobSource(JobSource):
             "app_id": self.app_id,
             "app_key": self.app_key,
             "results_per_page": self.results_per_page,
-            "what": self.query,
+            "what": query,
         }
 
         if self.location:
@@ -80,6 +121,11 @@ class AdzunaJobSource(JobSource):
             )
 
             company_data = item.get("company") or {}
+
+            has_salary = (
+                self._to_int(item.get("salary_min")) is not None
+                or self._to_int(item.get("salary_max")) is not None
+            )
 
             posted_at = self._parse_datetime(
                 item.get("created")
@@ -108,6 +154,12 @@ class AdzunaJobSource(JobSource):
                     salary_max=self._to_int(
                         item.get("salary_max")
                     ),
+                    salary_currency=(
+                        COUNTRY_CURRENCIES.get(self.country.lower())
+                        if has_salary
+                        else None
+                    ),
+                    salary_period="year" if has_salary else None,
                     application_url=item.get(
                         "redirect_url",
                         "",

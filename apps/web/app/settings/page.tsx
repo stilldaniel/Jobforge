@@ -1,5 +1,6 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
 import { FormEvent, useEffect, useState } from "react";
 import {
   CheckCircle2,
@@ -20,9 +21,6 @@ import type {
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "5",
-);
 
 interface FormState {
   email: string;

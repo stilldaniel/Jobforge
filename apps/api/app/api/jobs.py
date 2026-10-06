@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.models.job import Job
 from app.schemas.job import JobCreate, JobResponse
+from app.services.job_fingerprint import generate_job_fingerprint
+from app.services.job_requirements import extract_requirements
 
 
 router = APIRouter(
@@ -12,23 +14,77 @@ router = APIRouter(
 )
 
 
+def apply_job_data(
+    job: Job,
+    job_data: JobCreate,
+) -> None:
+    """
+    Copy submitted fields onto a job, deriving the fingerprint
+    and any requirements the caller did not provide.
+    """
+
+    requirements = extract_requirements(
+        title=job_data.title,
+        description=job_data.description,
+    )
+
+    job.title = job_data.title
+    job.company = job_data.company
+    job.description = job_data.description
+    job.location = job_data.location
+    job.work_type = job_data.work_type
+    job.salary_min = job_data.salary_min
+    job.salary_max = job_data.salary_max
+    job.application_url = job_data.application_url
+    job.source = job_data.source
+    job.posted_at = job_data.posted_at
+    job.required_skills = (
+        job_data.required_skills
+        if job_data.required_skills is not None
+        else requirements["required_skills"]
+    )
+    job.required_experience = (
+        job_data.required_experience
+        if job_data.required_experience is not None
+        else requirements["required_experience"]
+    )
+    job.fingerprint = job_fingerprint(job_data)
+
+
+def job_fingerprint(job_data: JobCreate) -> str:
+    return generate_job_fingerprint(
+        title=job_data.title,
+        company=job_data.company,
+        application_url=job_data.application_url,
+    )
+
+
+def ensure_unique_fingerprint(
+    db: Session,
+    fingerprint: str,
+    job_id: int | None = None,
+) -> None:
+    query = db.query(Job).filter(Job.fingerprint == fingerprint)
+
+    if job_id is not None:
+        query = query.filter(Job.id != job_id)
+
+    if query.first():
+        raise HTTPException(
+            status_code=409,
+            detail="A job with this title, company and URL already exists",
+        )
+
+
 @router.post("/", response_model=JobResponse)
 def create_job(
     job_data: JobCreate,
     db: Session = Depends(get_db),
 ):
-    job = Job(
-        title=job_data.title,
-        company=job_data.company,
-        description=job_data.description,
-        location=job_data.location,
-        work_type=job_data.work_type,
-        salary_min=job_data.salary_min,
-        salary_max=job_data.salary_max,
-        application_url=job_data.application_url,
-        source=job_data.source,
-        posted_at=job_data.posted_at,
-    )
+    ensure_unique_fingerprint(db, job_fingerprint(job_data))
+
+    job = Job()
+    apply_job_data(job, job_data)
 
     db.add(job)
     db.commit()
@@ -74,16 +130,13 @@ def update_job(
             detail="Job not found",
         )
 
-    job.title = job_data.title
-    job.company = job_data.company
-    job.description = job_data.description
-    job.location = job_data.location
-    job.work_type = job_data.work_type
-    job.salary_min = job_data.salary_min
-    job.salary_max = job_data.salary_max
-    job.application_url = job_data.application_url
-    job.source = job_data.source
-    job.posted_at = job_data.posted_at
+    ensure_unique_fingerprint(
+        db,
+        job_fingerprint(job_data),
+        job_id=job.id,
+    )
+
+    apply_job_data(job, job_data)
 
     db.commit()
     db.refresh(job)

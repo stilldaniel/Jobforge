@@ -1,5 +1,7 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import { formatSalary } from "@/lib/format";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -25,9 +27,6 @@ import type { SavedJob } from "@/types/api";
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "3",
-);
 
 export default function SavedJobsPage() {
   const [savedJobs, setSavedJobs] = useState<SavedJob[]>([]);
@@ -94,25 +93,6 @@ export default function SavedJobsPage() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  const formatSalary = (
-    salaryMin: number | null,
-    salaryMax: number | null,
-  ) => {
-    if (salaryMin === null && salaryMax === null) {
-      return null;
-    }
-
-    if (salaryMin !== null && salaryMax !== null) {
-      return `$${salaryMin.toLocaleString()} – $${salaryMax.toLocaleString()}`;
-    }
-
-    if (salaryMin !== null) {
-      return `From $${salaryMin.toLocaleString()}`;
-    }
-
-    return `Up to $${salaryMax?.toLocaleString()}`;
   };
 
   return (
@@ -205,10 +185,7 @@ export default function SavedJobsPage() {
               {savedJobs.map((savedJob) => {
                 const job = savedJob.job;
 
-                const salary = formatSalary(
-                  job.salary_min,
-                  job.salary_max,
-                );
+                const salary = formatSalary(job);
 
                 const savedDate = formatSavedDate(
                   savedJob.created_at,

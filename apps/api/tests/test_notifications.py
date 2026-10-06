@@ -396,3 +396,31 @@ def test_notification_can_be_read_without_affecting_delivery_status(
 
     assert notification.read_at is not None
     assert notification.status == "pending"
+
+def test_min_notification_score_defaults_to_60(monkeypatch):
+    from app.services.notification_service import get_min_notification_score
+
+    monkeypatch.delenv("NOTIFICATION_MIN_SCORE", raising=False)
+
+    assert get_min_notification_score() == 60
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("75", 75),
+        ("-5", 0),
+        ("150", 100),
+        ("high", 60),
+    ],
+)
+def test_min_notification_score_configuration(
+    monkeypatch,
+    value,
+    expected,
+):
+    from app.services.notification_service import get_min_notification_score
+
+    monkeypatch.setenv("NOTIFICATION_MIN_SCORE", value)
+
+    assert get_min_notification_score() == expected

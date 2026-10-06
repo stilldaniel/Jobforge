@@ -1,5 +1,7 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import { formatSalary } from "@/lib/format";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -29,9 +31,6 @@ import type { Application } from "@/types/api";
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(
-  process.env.NEXT_PUBLIC_DEV_USER_ID || "5",
-);
 
 const APPLICATION_STATUSES = [
   "applied",
@@ -99,25 +98,6 @@ export default function ApplicationsPage() {
       day: "numeric",
       year: "numeric",
     });
-  };
-
-  const formatSalary = (
-    salaryMin: number | null,
-    salaryMax: number | null,
-  ) => {
-    if (salaryMin === null && salaryMax === null) {
-      return null;
-    }
-
-    if (salaryMin !== null && salaryMax !== null) {
-      return `$${salaryMin.toLocaleString()} – $${salaryMax.toLocaleString()}`;
-    }
-
-    if (salaryMin !== null) {
-      return `From $${salaryMin.toLocaleString()}`;
-    }
-
-    return `Up to $${salaryMax?.toLocaleString()}`;
   };
 
   const getStatusLabel = (status: string) => {
@@ -337,10 +317,7 @@ export default function ApplicationsPage() {
               {applications.map((application) => {
                 const job = application.job;
 
-                const salary = formatSalary(
-                  job.salary_min,
-                  job.salary_max,
-                );
+                const salary = formatSalary(job);
 
                 const appliedDate =
                   formatAppliedDate(

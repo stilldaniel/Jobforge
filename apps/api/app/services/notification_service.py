@@ -1,9 +1,42 @@
+import logging
+import os
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
 from app.models.job_match import JobMatch
 from app.models.notification import Notification
+
+
+logger = logging.getLogger(__name__)
+
+# Below this score a match is still stored and shown in the app,
+# but it doesn't generate a notification. Jobs that fail a hard
+# eligibility check (location, salary) are capped at 49.
+DEFAULT_MIN_NOTIFICATION_SCORE = 60
+
+
+def get_min_notification_score() -> int:
+    """
+    Return the lowest match score that creates a notification.
+    """
+
+    value = os.getenv(
+        "NOTIFICATION_MIN_SCORE",
+        str(DEFAULT_MIN_NOTIFICATION_SCORE),
+    )
+
+    try:
+        score = int(value)
+    except ValueError:
+        logger.warning(
+            "Invalid NOTIFICATION_MIN_SCORE=%s. Falling back to %s.",
+            value,
+            DEFAULT_MIN_NOTIFICATION_SCORE,
+        )
+        return DEFAULT_MIN_NOTIFICATION_SCORE
+
+    return max(0, min(score, 100))
 
 
 def create_notification_for_match(
@@ -16,9 +49,13 @@ def create_notification_for_match(
     Matches above 90 receive an immediate notification.
     Matches at or below 90 are added to the digest queue.
 
-    A notification will not be created if one already exists
-    for this job match.
+    A notification will not be created if the match scores below
+    the minimum notification score, or if one already exists for
+    this job match.
     """
+
+    if match.score < get_min_notification_score():
+        return None
 
     existing_notification = (
         db.query(Notification)

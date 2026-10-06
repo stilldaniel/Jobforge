@@ -1,5 +1,7 @@
 "use client";
 
+import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import { formatSalary, formatSource } from "@/lib/format";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -35,7 +37,6 @@ import type { Job, MatchedJob } from "@/types/api";
 
 import styles from "./page.module.css";
 
-const USER_ID = Number(process.env.NEXT_PUBLIC_DEV_USER_ID || "3");
 
 export default function JobDetailsPage() {
   const params = useParams();
@@ -181,28 +182,10 @@ export default function JobDetailsPage() {
     });
   }, [job]);
 
-  const salary = useMemo(() => {
-    if (!job) {
-      return null;
-    }
-
-    if (job.salary_min === null && job.salary_max === null) {
-      return null;
-    }
-
-    if (
-      job.salary_min !== null &&
-      job.salary_max !== null
-    ) {
-      return `$${job.salary_min.toLocaleString()} – $${job.salary_max.toLocaleString()}`;
-    }
-
-    if (job.salary_min !== null) {
-      return `From $${job.salary_min.toLocaleString()}`;
-    }
-
-    return `Up to $${job.salary_max?.toLocaleString()}`;
-  }, [job]);
+  const salary = useMemo(
+    () => (job ? formatSalary(job) : null),
+    [job],
+  );
 
   return (
     <AppShell>
@@ -649,7 +632,7 @@ export default function JobDetailsPage() {
                             styles.detailValue
                           }
                         >
-                          {job.source}
+                          {formatSource(job.source)}
                         </strong>
                       </div>
                     </div>

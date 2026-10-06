@@ -21,6 +21,8 @@ class MatchedJobResponse(BaseModel):
     work_type: str | None
     salary_min: int | None
     salary_max: int | None
+    salary_currency: str | None
+    salary_period: str | None
     application_url: str
 
     created_at: datetime

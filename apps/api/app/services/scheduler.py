@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -122,6 +123,9 @@ def start_scheduler():
         replace_existing=True,
         max_instances=1,
         misfire_grace_time=60,
+        # First run starts right away, in the scheduler's background
+        # thread, so a slow fetch doesn't delay API startup.
+        next_run_time=datetime.now(scheduler.timezone),
     )
 
     if digest_enabled:
@@ -146,14 +150,19 @@ def start_scheduler():
             "Daily digest is disabled."
         )
 
+    # A scheduler that was shut down keeps its stopped thread pool,
+    # which can't run jobs. Drop it so start() creates a fresh one.
+    try:
+        scheduler.remove_executor("default", shutdown=False)
+    except KeyError:
+        pass
+
     scheduler.start()
 
     logger.info(
         "JobForge scheduler started. "
         "Monitoring every 15 minutes."
     )
-
-    run_monitoring_job()
 
 
 def stop_scheduler():
