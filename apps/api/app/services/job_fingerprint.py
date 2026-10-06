@@ -17,6 +17,20 @@ def generate_job_fingerprint(
 
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
+def generate_listing_fingerprint(
+    source: str,
+    external_id: str,
+) -> str:
+    """
+    Fingerprint from a platform's own listing ID, for platforms whose
+    URLs change between requests (e.g. Adzuna adds a tracking code).
+    """
+
+    value = f"{source.strip().lower()}|{external_id.strip()}"
+
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
 COMPANY_SUFFIXES = {
     "inc",
     "incorporated",

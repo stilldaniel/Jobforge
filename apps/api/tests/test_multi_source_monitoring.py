@@ -270,3 +270,77 @@ def test_salary_with_currency_is_not_compared_to_profile():
         "Job salary could not be compared with your preference"
         in reasons
     )
+
+
+
+# ============================================================
+# ADZUNA
+# ============================================================
+
+def test_listing_with_changing_tracking_url_is_not_duplicated(db):
+    first = FeedSource(
+        [
+            make_job(
+                url="https://www.adzuna.co.uk/jobs/land/ad/1?se=AAA",
+                source="adzuna",
+                external_id="1",
+            )
+        ]
+    )
+    second = FeedSource(
+        [
+            make_job(
+                url="https://www.adzuna.co.uk/jobs/land/ad/1?se=BBB",
+                source="adzuna",
+                external_id="1",
+            )
+        ]
+    )
+
+    ingest_jobs(db, first)
+    result = ingest_jobs(db, second)
+
+    assert result.created_jobs == []
+    assert len(result.updated_jobs) == 1
+    assert db.query(Job).count() == 1
+    assert db.query(Job).one().application_url.endswith("se=BBB")
+
+
+def test_uk_hybrid_job_is_ineligible_for_candidate_in_lagos():
+    profile = SimpleNamespace(
+        professional_title="Frontend Developer",
+        skills='["React", "TypeScript"]',
+        years_of_experience=3,
+        candidate_location="Lagos, Nigeria",
+        preferred_location=None,
+        preferred_work_type="remote",
+        minimum_salary=None,
+        maximum_salary=None,
+    )
+
+    hybrid = SimpleNamespace(
+        title="Frontend Developer",
+        required_skills='["React", "TypeScript"]',
+        required_experience=None,
+        location="Rusholme, Manchester",
+        remote_eligibility=None,
+        work_type="hybrid",
+        salary_min=40000,
+        salary_max=50000,
+        salary_currency="GBP",
+        salary_period="year",
+    )
+
+    uk_remote = SimpleNamespace(
+        **{
+            **vars(hybrid),
+            "work_type": "remote",
+            "remote_eligibility": "United Kingdom",
+        }
+    )
+
+    for job in (hybrid, uk_remote):
+        score, reasons = calculate_match_score(profile, job)
+
+        assert score <= 49
+        assert reasons[0] == "Job has an eligibility mismatch"

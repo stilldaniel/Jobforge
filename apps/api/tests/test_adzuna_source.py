@@ -76,7 +76,9 @@ def test_adzuna_source_maps_api_response():
         "https://example.com/job/123"
     )
     assert job.source == "adzuna"
-    assert job.remote_eligibility == "Remote"
+    # Adzuna listings are for the searched country (gb).
+    assert job.work_type == "remote"
+    assert job.remote_eligibility == "United Kingdom"
 
 
 def test_adzuna_source_handles_missing_salary():
@@ -247,3 +249,74 @@ def test_adzuna_source_handles_malformed_job_fields():
     assert job.posted_at is None
     assert job.remote_eligibility is None
     assert job.work_type is None
+
+
+def adzuna_item(**overrides):
+    item = {
+        "id": "5894186058",
+        "title": "Frontend Developer",
+        "company": {"display_name": "Ada Meher"},
+        "description": "Frontend developer working with React.",
+        "location": {"display_name": "Rusholme, Manchester"},
+        "redirect_url": (
+            "https://www.adzuna.co.uk/jobs/land/ad/5894186058"
+            "?se=FIRST&utm_medium=api"
+        ),
+        "created": "2026-09-17T10:00:00Z",
+    }
+    item.update(overrides)
+    return item
+
+
+def fetch_one(item, country="gb"):
+    source = AdzunaJobSource(
+        app_id="test-id",
+        app_key="test-key",
+        country=country,
+    )
+
+    response = Mock()
+    response.json.return_value = {"results": [item]}
+
+    with patch(
+        "app.job_sources.adzuna.httpx.get",
+        return_value=response,
+    ):
+        return source.fetch_jobs()[0]
+
+
+def test_adzuna_hybrid_job_is_not_remote():
+    job = fetch_one(
+        adzuna_item(
+            description=(
+                "Frontend Developer - Manchester (Hybrid Remote) - "
+                "2pdw in office"
+            ),
+        )
+    )
+
+    assert job.work_type == "hybrid"
+    assert job.remote_eligibility is None
+
+
+def test_adzuna_remote_job_is_limited_to_searched_country():
+    job = fetch_one(
+        adzuna_item(description="Fully remote frontend role."),
+        country="us",
+    )
+
+    assert job.work_type == "remote"
+    assert job.remote_eligibility == "United States"
+
+
+def test_adzuna_job_without_arrangement_has_no_work_type():
+    job = fetch_one(adzuna_item(description="Office based role."))
+
+    assert job.work_type is None
+    assert job.remote_eligibility is None
+
+
+def test_adzuna_uses_listing_id_as_identity():
+    job = fetch_one(adzuna_item())
+
+    assert job.external_id == "5894186058"

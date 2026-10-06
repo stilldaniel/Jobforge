@@ -31,6 +31,31 @@ COUNTRY_CURRENCIES = {
     "za": "ZAR",
 }
 
+# Adzuna searches one country at a time, and its listings are for people
+# in that country (its job pages are blocked for visitors elsewhere), so
+# remote jobs are only open to candidates there.
+COUNTRY_NAMES = {
+    "at": "Austria",
+    "au": "Australia",
+    "be": "Belgium",
+    "br": "Brazil",
+    "ca": "Canada",
+    "ch": "Switzerland",
+    "de": "Germany",
+    "es": "Spain",
+    "fr": "France",
+    "gb": "United Kingdom",
+    "in": "India",
+    "it": "Italy",
+    "mx": "Mexico",
+    "nl": "Netherlands",
+    "nz": "New Zealand",
+    "pl": "Poland",
+    "sg": "Singapore",
+    "us": "United States",
+    "za": "South Africa",
+}
+
 
 class AdzunaJobSource(JobSource):
     """
@@ -131,6 +156,10 @@ class AdzunaJobSource(JobSource):
                 item.get("created")
             )
 
+            work_type, remote_eligibility = self._extract_arrangement(
+                item
+            )
+
             discovered_jobs.append(
                 DiscoveredJob(
                     title=item.get(
@@ -145,9 +174,7 @@ class AdzunaJobSource(JobSource):
                         "description"
                     ),
                     location=location_name,
-                    work_type=self._extract_work_type(
-                        item
-                    ),
+                    work_type=work_type,
                     salary_min=self._to_int(
                         item.get("salary_min")
                     ),
@@ -166,10 +193,11 @@ class AdzunaJobSource(JobSource):
                     ),
                     source="adzuna",
                     posted_at=posted_at,
-                    remote_eligibility=(
-                        self._extract_remote_eligibility(
-                            item
-                        )
+                    remote_eligibility=remote_eligibility,
+                    # redirect_url carries a per-request tracking code,
+                    # so identify the job by Adzuna's own ID.
+                    external_id=(
+                        str(item["id"]) if item.get("id") else None
                     ),
                 )
             )
@@ -203,37 +231,31 @@ class AdzunaJobSource(JobSource):
         except ValueError:
             return None
 
-    @staticmethod
-    def _extract_work_type(
+    def _extract_arrangement(
+        self,
         item: dict,
-    ) -> str | None:
-        description = (
-            item.get("description") or ""
+    ) -> tuple[str | None, str | None]:
+        """
+        Return (work_type, remote_eligibility) from the job text.
+
+        "Hybrid" roles need office days, so they are not remote. Remote
+        roles are limited to the searched country, e.g. "United Kingdom".
+        """
+
+        text = " ".join(
+            [
+                item.get("title") or "",
+                item.get("description") or "",
+            ]
         ).lower()
 
-        if "part time" in description:
-            return "part-time"
+        if "hybrid" in text:
+            return "hybrid", None
 
-        if "contract" in description:
-            return "contract"
+        if "remote" in text:
+            return (
+                "remote",
+                COUNTRY_NAMES.get(self.country.lower()),
+            )
 
-        if "temporary" in description:
-            return "temporary"
-
-        if "full time" in description:
-            return "full-time"
-
-        return None
-
-    @staticmethod
-    def _extract_remote_eligibility(
-        item: dict,
-    ) -> str | None:
-        description = (
-            item.get("description") or ""
-        ).lower()
-
-        if "remote" in description:
-            return "Remote"
-
-        return None
+        return None, None

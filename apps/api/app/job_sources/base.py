@@ -18,6 +18,9 @@ class DiscoveredJob:
     remote_eligibility: str | None = None
     salary_currency: str | None = None
     salary_period: str | None = None
+    # The platform's own ID for the listing. When set, it identifies the
+    # job instead of the URL, for platforms whose links change per request.
+    external_id: str | None = None
 
 
 class JobSource(ABC):

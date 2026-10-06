@@ -8,6 +8,7 @@ from app.models.job import Job
 from app.services.job_fingerprint import (
     generate_dedupe_key,
     generate_job_fingerprint,
+    generate_listing_fingerprint,
 )
 from app.services.job_requirements import extract_requirements
 
@@ -53,11 +54,17 @@ def ingest_jobs(
         # GENERATE KEYS
         # --------------------------------------------------
 
-        fingerprint = generate_job_fingerprint(
-            title=discovered_job.title,
-            company=discovered_job.company,
-            application_url=discovered_job.application_url,
-        )
+        if discovered_job.external_id:
+            fingerprint = generate_listing_fingerprint(
+                source=discovered_job.source,
+                external_id=discovered_job.external_id,
+            )
+        else:
+            fingerprint = generate_job_fingerprint(
+                title=discovered_job.title,
+                company=discovered_job.company,
+                application_url=discovered_job.application_url,
+            )
 
         dedupe_key = generate_dedupe_key(
             title=discovered_job.title,
