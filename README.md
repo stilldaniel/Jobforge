@@ -83,46 +83,81 @@ There is no login yet: every page acts as the user in
 
 ## Running in the background on Windows
 
-On this machine the backend starts by itself at Windows log-on, through
-a Task Scheduler task called **JobForge API**. It runs
-[`apps/api/run_server.py`](apps/api/run_server.py) with `pythonw.exe`, so
-there's no window, and writes its output to `apps/api/logs/api.log`. Scans
-pause while the laptop sleeps and resume when it wakes; a digest missed
-while the laptop was off is sent once it's back on.
+On this machine JobForge runs itself through three Task Scheduler tasks.
+All run with `pythonw.exe` (no window) under your own account, keep
+running on battery, and write logs to `apps/api/logs/` or
+`apps/web/logs/`.
 
-Run these in PowerShell:
+| Task | When | What it runs |
+| --- | --- | --- |
+| **JobForge API** | At log-on | [`apps/api/run_server.py`](apps/api/run_server.py): the backend and its scheduler on port 8000 |
+| **JobForge Web** | At log-on | [`apps/web/run_web.py`](apps/web/run_web.py): a production build of the web app on port 3000, rebuilt first if the code changed |
+| **JobForge Backup** | Daily at 02:00, or at the next log-on if missed | [`apps/api/backup_database.py`](apps/api/backup_database.py): `pg_dump` to `Documents\JobForge Backups`, keeping the newest 7 |
+
+The **JobForge** shortcut on the desktop opens http://localhost:3000.
+Scans pause while the laptop sleeps and resume when it wakes; a digest
+missed while the laptop was off is sent once it's back on.
+
+Run these in PowerShell from the repository root:
 
 ```powershell
-# Is it running?
-Get-ScheduledTask -TaskName "JobForge API" | Select-Object State
+# Are they running?
+Get-ScheduledTask -TaskName "JobForge*" | Select-Object TaskName, State
 Invoke-RestMethod http://127.0.0.1:8000/health
 
-# Follow the log (Ctrl+C to stop following)
+# Follow a log (Ctrl+C to stop following)
 Get-Content apps\api\logs\api.log -Tail 50 -Wait
+Get-Content apps\web\logs\web.log -Tail 50 -Wait
+Get-Content apps\api\logs\backup.log -Tail 20
 
-# Stop, start, or restart (e.g. after changing .env or pulling new code)
+# Stop, start, or restart, e.g. after changing .env or pulling new code
 Stop-ScheduledTask -TaskName "JobForge API"
+Start-ScheduledTask -TaskName "JobForge API"
+
+# Back up right now
+Start-ScheduledTask -TaskName "JobForge Backup"
+```
+
+To work on the code with `uvicorn --reload` or `pnpm dev`, stop the
+matching task first: they use the same ports, and only one copy of the
+backend may run the scheduler. Start the task again when you're done.
+After the web code changes, restarting **JobForge Web** rebuilds it, which
+takes about a minute.
+
+### Restoring a backup
+
+Stop the backend first, then restore over the database named in
+`DATABASE_URL`:
+
+```powershell
+Stop-ScheduledTask -TaskName "JobForge API"
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" --clean --if-exists --username postgres --dbname jobforge "$env:USERPROFILE\Documents\JobForge Backups\<backup file>.dump"
 Start-ScheduledTask -TaskName "JobForge API"
 ```
 
-To work on the backend with `uvicorn app.main:app --reload`, stop the
-task first: both use port 8000, and only one may run the scheduler. Start
-the task again when you're done.
+Backup settings (`BACKUP_DIR`, `BACKUP_KEEP`, `PG_DUMP_PATH`) can be set
+in `apps/api/.env`.
 
-To set the task up on another machine:
+### Setting the tasks up on another machine
 
 ```powershell
-$api = "C:\path\to\Jobforge\apps\api"
-$action = New-ScheduledTaskAction -Execute "$api\.venv\Scripts\pythonw.exe" -Argument "`"$api\run_server.py`"" -WorkingDirectory $api
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -StartWhenAvailable
-Register-ScheduledTask -TaskName "JobForge API" -Action $action -Trigger $trigger -Settings $settings
+$root = "C:\path\to\Jobforge"
+$py = "$root\apps\api\.venv\Scripts\pythonw.exe"
+$me = "$env:USERDOMAIN\$env:USERNAME"
+$always = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit ([TimeSpan]::Zero) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew -StartWhenAvailable
+
+Register-ScheduledTask -TaskName "JobForge API" -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $me) -Settings $always -Action (New-ScheduledTaskAction -Execute $py -Argument "`"$root\apps\api\run_server.py`"" -WorkingDirectory "$root\apps\api")
+
+Register-ScheduledTask -TaskName "JobForge Web" -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $me) -Settings $always -Action (New-ScheduledTaskAction -Execute $py -Argument "`"$root\apps\web\run_web.py`"" -WorkingDirectory "$root\apps\web")
+
+$nightly = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 30)
+Register-ScheduledTask -TaskName "JobForge Backup" -Trigger (New-ScheduledTaskTrigger -Daily -At "02:00") -Settings $nightly -Action (New-ScheduledTaskAction -Execute $py -Argument "`"$root\apps\api\backup_database.py`"" -WorkingDirectory "$root\apps\api")
 ```
 
-To remove it:
+To remove them:
 
 ```powershell
-Unregister-ScheduledTask -TaskName "JobForge API" -Confirm:$false
+Get-ScheduledTask -TaskName "JobForge*" | Unregister-ScheduledTask -Confirm:$false
 ```
 
 ## Configuration
@@ -175,3 +210,4 @@ access.
 - [Database schema](docs/database/schema.md) and [ERD](docs/database/erd.md)
 - [MVP](docs/product/mvp.md) and [Roadmap](docs/product/roadmap.md)
 - [Engineering principles](docs/engineering-principles.md)
+- [Guide for AI coding agents](docs/architecture/ai-agents.md)

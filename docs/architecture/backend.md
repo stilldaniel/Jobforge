@@ -17,6 +17,8 @@ app/
   scripts/             One-off maintenance scripts
 migrations/            Alembic migrations
 tests/                 pytest suite (in-memory SQLite)
+run_server.py          Runs the API in the background (Windows log-on task)
+backup_database.py     Nightly pg_dump with retention (Windows scheduled task)
 ```
 
 ## Services

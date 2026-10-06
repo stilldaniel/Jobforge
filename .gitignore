@@ -45,3 +45,4 @@ yarn-error.log*
 
 # JobForge background server logs
 apps/api/logs/
+apps/web/logs/
