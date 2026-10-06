@@ -3,7 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import (
+    NotificationPreferences,
+    NotificationPreferencesUpdate,
+    UserCreate,
+    UserResponse,
+)
 
 
 router = APIRouter(
@@ -51,6 +56,54 @@ def get_user(
         )
 
     return user
+
+def get_user_or_404(
+    db: Session,
+    user_id: int,
+) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found",
+        )
+
+    return user
+
+
+@router.get(
+    "/{user_id}/notification-preferences",
+    response_model=NotificationPreferences,
+)
+def get_notification_preferences(
+    user_id: int,
+    db: Session = Depends(get_db),
+):
+    return get_user_or_404(db, user_id)
+
+
+@router.patch(
+    "/{user_id}/notification-preferences",
+    response_model=NotificationPreferences,
+)
+def update_notification_preferences(
+    user_id: int,
+    preferences: NotificationPreferencesUpdate,
+    db: Session = Depends(get_db),
+):
+    user = get_user_or_404(db, user_id)
+
+    for field, value in preferences.model_dump(
+        exclude_none=True,
+    ).items():
+        setattr(user, field, value)
+
+    db.commit()
+    db.refresh(user)
+
+    return user
+
 
 @router.put("/{user_id}", response_model=UserResponse)
 def update_user(

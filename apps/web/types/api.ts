@@ -188,3 +188,9 @@ export interface ApplicationUpdate {
   status?: string | null;
   notes?: string | null;
 }
+export interface NotificationPreferences {
+  job_alerts_enabled: boolean;
+  high_match_alerts_enabled: boolean;
+  digest_notifications_enabled: boolean;
+  email_notifications_enabled: boolean;
+}

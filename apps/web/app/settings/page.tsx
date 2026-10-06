@@ -1,6 +1,9 @@
 "use client";
 
-import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import {
+  DEV_USER_ID as USER_ID,
+  HIGH_MATCH_SCORE,
+} from "@/lib/config";
 import { FormEvent, useEffect, useState } from "react";
 import {
   CheckCircle2,
@@ -10,11 +13,14 @@ import {
 
 import AppShell from "@/components/layout/AppShell";
 import {
+  getNotificationPreferences,
   getUser,
+  updateNotificationPreferences,
   updateUser,
 } from "@/lib/api/users";
 
 import type {
+  NotificationPreferences,
   User,
   UserCreate,
 } from "@/types/api";
@@ -33,6 +39,63 @@ const EMPTY_FORM: FormState = {
   full_name: "",
   timezone: "UTC",
 };
+
+type PreferenceKey = keyof NotificationPreferences;
+
+interface PreferenceOption {
+  key: PreferenceKey;
+  label: string;
+  description: string;
+}
+
+const PREFERENCE_OPTIONS: PreferenceOption[] = [
+  {
+    key: "job_alerts_enabled",
+    label: "Job alerts",
+    description:
+      "Get notified about new jobs that match your career profile.",
+  },
+  {
+    key: "email_notifications_enabled",
+    label: "Email notifications",
+    description:
+      "Receive job alerts by email. When off, alerts still appear in JobForge.",
+  },
+  {
+    key: "high_match_alerts_enabled",
+    label: "Instant high-match emails",
+    description: `Email me as soon as a job matches ${HIGH_MATCH_SCORE}% or higher. When off, these go into the daily digest.`,
+  },
+  {
+    key: "digest_notifications_enabled",
+    label: "Daily digest",
+    description:
+      "One email each morning with the other good matches found that day.",
+  },
+];
+
+// Why a preference has no effect with the current settings, if it doesn't.
+function disabledReason(
+  key: PreferenceKey,
+  preferences: NotificationPreferences,
+): string | null {
+  if (key === "job_alerts_enabled") {
+    return null;
+  }
+
+  if (!preferences.job_alerts_enabled) {
+    return "Turn on job alerts to use this.";
+  }
+
+  if (
+    key !== "email_notifications_enabled" &&
+    !preferences.email_notifications_enabled
+  ) {
+    return "Turn on email notifications to use this.";
+  }
+
+  return null;
+}
 
 function userToForm(user: User): FormState {
   return {
@@ -56,6 +119,18 @@ export default function SettingsPage() {
   const [success, setSuccess] =
     useState<string | null>(null);
 
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
+
+  const [savingPreference, setSavingPreference] =
+    useState<PreferenceKey | null>(null);
+
+  const [preferencesError, setPreferencesError] =
+    useState<string | null>(null);
+
+  const [preferencesSaved, setPreferencesSaved] =
+    useState(false);
+
   useEffect(() => {
     async function loadUser() {
       try {
@@ -77,8 +152,57 @@ export default function SettingsPage() {
       }
     }
 
+    async function loadPreferences() {
+      try {
+        setPreferences(
+          await getNotificationPreferences(USER_ID),
+        );
+      } catch (err) {
+        setPreferencesError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load your notification preferences.",
+        );
+      }
+    }
+
     loadUser();
+    loadPreferences();
   }, []);
+
+  const togglePreference = async (key: PreferenceKey) => {
+    if (!preferences || savingPreference) {
+      return;
+    }
+
+    const previous = preferences;
+    const value = !preferences[key];
+
+    // Show the change straight away; undo it if saving fails.
+    setPreferences({ ...preferences, [key]: value });
+    setSavingPreference(key);
+    setPreferencesError(null);
+    setPreferencesSaved(false);
+
+    try {
+      const result = await updateNotificationPreferences(
+        USER_ID,
+        { [key]: value },
+      );
+
+      setPreferences(result);
+      setPreferencesSaved(true);
+    } catch (err) {
+      setPreferences(previous);
+      setPreferencesError(
+        err instanceof Error
+          ? err.message
+          : "Failed to update your notification preferences.",
+      );
+    } finally {
+      setSavingPreference(null);
+    }
+  };
 
   const updateField = (
     field: keyof FormState,
@@ -314,6 +438,110 @@ export default function SettingsPage() {
             </button>
           </div>
         </form>
+
+        <section
+          className={styles.card}
+          aria-labelledby="notification-preferences-title"
+        >
+          <div className={styles.cardHeader}>
+            <div>
+              <p className={styles.cardEyebrow}>
+                Notifications
+              </p>
+
+              <h2
+                id="notification-preferences-title"
+                className={styles.cardTitle}
+              >
+                Notification preferences
+              </h2>
+            </div>
+
+            <p
+              className={styles.cardDescription}
+              aria-live="polite"
+            >
+              {preferencesSaved
+                ? "Saved."
+                : "Changes are saved as soon as you switch them."}
+            </p>
+          </div>
+
+          {preferencesError && (
+            <div className={styles.error}>
+              <strong>
+                Couldn&apos;t update your preferences.
+              </strong>
+              <p>{preferencesError}</p>
+            </div>
+          )}
+
+          {preferences && (
+            <ul className={styles.preferenceList}>
+              {PREFERENCE_OPTIONS.map((option) => {
+                const checked = preferences[option.key];
+                const reason = disabledReason(
+                  option.key,
+                  preferences,
+                );
+                const isSaving =
+                  savingPreference === option.key;
+
+                return (
+                  <li
+                    key={option.key}
+                    className={`${styles.preference} ${
+                      reason ? styles.preferenceInactive : ""
+                    }`}
+                  >
+                    <div className={styles.preferenceText}>
+                      <span
+                        id={`${option.key}-label`}
+                        className={styles.preferenceLabel}
+                      >
+                        {option.label}
+                      </span>
+
+                      <span
+                        id={`${option.key}-description`}
+                        className={styles.preferenceDescription}
+                      >
+                        {reason ?? option.description}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={checked}
+                      aria-labelledby={`${option.key}-label`}
+                      aria-describedby={`${option.key}-description`}
+                      className={`${styles.switch} ${
+                        checked ? styles.switchOn : ""
+                      }`}
+                      onClick={() =>
+                        togglePreference(option.key)
+                      }
+                      disabled={
+                        Boolean(reason) ||
+                        savingPreference !== null
+                      }
+                    >
+                      <span className={styles.switchThumb}>
+                        {isSaving && (
+                          <LoaderCircle
+                            size={10}
+                            className={styles.spinner}
+                          />
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
       </div>
     </AppShell>
   );

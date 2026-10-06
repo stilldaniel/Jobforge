@@ -1,6 +1,7 @@
 import { api } from "./client";
 import type {
   DeleteResponse,
+  NotificationPreferences,
   User,
   UserCreate,
 } from "@/types/api";
@@ -23,4 +24,20 @@ export function updateUser(userId: number, data: UserCreate) {
 
 export function deleteUser(userId: number) {
   return api.delete<DeleteResponse>(`/users/${userId}`);
+}
+
+export function getNotificationPreferences(userId: number) {
+  return api.get<NotificationPreferences>(
+    `/users/${userId}/notification-preferences`,
+  );
+}
+
+export function updateNotificationPreferences(
+  userId: number,
+  data: Partial<NotificationPreferences>,
+) {
+  return api.patch<NotificationPreferences>(
+    `/users/${userId}/notification-preferences`,
+    data,
+  );
 }
