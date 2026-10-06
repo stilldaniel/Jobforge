@@ -1,6 +1,6 @@
 "use client";
 
-import { DEV_USER_ID as USER_ID } from "@/lib/config";
+import { DEMO_MODE, DEV_USER_ID as USER_ID } from "@/lib/config";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -160,6 +160,23 @@ export default function AppShell({
       </aside>
 
       <div className={styles.mainArea}>
+        {DEMO_MODE && (
+          <div className={styles.demoBanner} role="note">
+            <span>
+              You&apos;re viewing a demo of JobForge with sample data.
+              Changes are kept only in this browser tab.
+            </span>
+
+            <a
+              href="https://github.com/stilldaniel/Jobforge"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View the code
+            </a>
+          </div>
+        )}
+
         <header className={styles.header}>
           <div>
             <p className={styles.headerLabel}>

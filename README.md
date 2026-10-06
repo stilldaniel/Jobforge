@@ -74,9 +74,14 @@ pnpm --filter web dev
 The app runs at http://localhost:3000. Create `apps/web/.env.local` with:
 
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=/api
 NEXT_PUBLIC_DEV_USER_ID=5
 ```
+
+The browser only talks to the web app: requests to `/api/*` are forwarded
+to the backend at `http://127.0.0.1:8000` (set `JOBFORGE_API_URL` to
+change it). Any device that can open the app can therefore use it, and
+the backend never has to be reachable directly.
 
 There is no login yet: every page acts as the user in
 `NEXT_PUBLIC_DEV_USER_ID`.
@@ -124,6 +129,29 @@ backend may run the scheduler. Start the task again when you're done.
 After the web code changes, restarting **JobForge Web** rebuilds it, which
 takes about a minute.
 
+### Using it from your phone (Tailscale)
+
+The web app is shared with your own devices through
+[Tailscale](https://tailscale.com), at
+**https://desktop-8o15rqo.tail895113.ts.net** while the laptop is on.
+Nothing is public: only devices signed in to your tailnet can open it.
+`APP_BASE_URL` in `apps/api/.env` is set to this address, so "View in
+JobForge" links in emails open on the phone too.
+
+```powershell
+# What's being shared
+& "C:\Program Files\Tailscale\tailscale.exe" serve status
+
+# Share the web app (survives restarts)
+& "C:\Program Files\Tailscale\tailscale.exe" serve --bg 3000
+
+# Stop sharing
+& "C:\Program Files\Tailscale\tailscale.exe" serve --https=443 off
+```
+
+Only port 3000 is shared; the web app forwards `/api/*` to the backend,
+which stays reachable from the laptop alone.
+
 ### Restoring a backup
 
 Stop the backend first, then restore over the database named in
@@ -160,6 +188,30 @@ To remove them:
 Get-ScheduledTask -TaskName "JobForge*" | Unregister-ScheduledTask -Confirm:$false
 ```
 
+## Portfolio demo
+
+Building the web app with `NEXT_PUBLIC_DEMO_MODE=true` produces a demo
+that runs entirely in the browser on sample data
+([`apps/web/lib/demo`](apps/web/lib/demo)): every page works, changes
+last for the browser session, and nothing calls the backend. A banner
+says it's a demo and links to this repository. The companies in it are
+invented.
+
+To publish it on Vercel:
+
+1. Import the GitHub repository as a new Vercel project.
+2. Set **Root Directory** to `apps/web` (framework: Next.js).
+3. Add the environment variable `NEXT_PUBLIC_DEMO_MODE` = `true`.
+4. Deploy.
+
+To try it locally without touching the laptop's real build:
+
+```bash
+cd apps/web
+NEXT_DIST_DIR=.next-demo NEXT_PUBLIC_DEMO_MODE=true npx next build
+NEXT_DIST_DIR=.next-demo npx next start --port 3010
+```
+
 ## Configuration
 
 Backend settings live in `apps/api/.env`. See
@@ -170,6 +222,7 @@ Backend settings live in `apps/api/.env`. See
 | `DATABASE_URL` | PostgreSQL connection string |
 | `JOB_SOURCES` | Platforms to scan, comma separated |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | Email delivery |
+| `APP_BASE_URL` | Where "View in JobForge" links in emails point (default `http://localhost:3000`) |
 | `DIGEST_ENABLED`, `DIGEST_HOUR`, `DIGEST_MINUTE` | Daily digest, in each user's timezone |
 | `NOTIFICATION_MIN_SCORE` | Lowest score that notifies (default 60) |
 | `NOTIFICATION_MAX_ATTEMPTS` | Email delivery retries (default 3) |

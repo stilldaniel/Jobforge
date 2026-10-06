@@ -1,3 +1,6 @@
+import { DEMO_MODE } from "@/lib/config";
+import { handleDemoRequest } from "@/lib/demo/api";
+
 declare const process: {
   env: {
     NEXT_PUBLIC_API_URL?: string;
@@ -5,7 +8,7 @@ declare const process: {
 };
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL || "/api";
 
 type RequestOptions = RequestInit & {
   token?: string;
@@ -16,6 +19,14 @@ async function request<T>(
   options: RequestOptions = {},
 ): Promise<T> {
   const { token, ...fetchOptions } = options;
+
+  if (DEMO_MODE) {
+    return handleDemoRequest<T>(
+      fetchOptions.method ?? "GET",
+      endpoint,
+      fetchOptions.body,
+    );
+  }
 
   const headers = new Headers(fetchOptions.headers);
 

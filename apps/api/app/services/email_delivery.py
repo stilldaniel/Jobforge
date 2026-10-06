@@ -14,6 +14,90 @@ from app.services.notification_delivery import NotificationDelivery
 logger = logging.getLogger(__name__)
 
 
+# Platform names for the "original listing" credit, which several
+# platforms require. Mirrors formatSource in apps/web/lib/format.ts.
+SOURCE_NAMES = {
+    "adzuna": "Adzuna",
+    "arbeitnow": "Arbeitnow",
+    "ashby": "Ashby",
+    "greenhouse": "Greenhouse",
+    "himalayas": "Himalayas",
+    "jobicy": "Jobicy",
+    "lever": "Lever",
+    "remoteok": "Remote OK",
+    "remotive": "Remotive",
+    "weworkremotely": "We Work Remotely",
+}
+
+
+def app_job_url(job_id: int) -> str:
+    """
+    The job's page in the JobForge web app, where the user can see the
+    score breakdown and save or track the job.
+    """
+
+    base_url = os.getenv(
+        "APP_BASE_URL",
+        "http://localhost:3000",
+    ).rstrip("/")
+
+    return f"{base_url}/jobs/{job_id}"
+
+
+def job_links_html(job) -> str:
+    """
+    A button to the job in JobForge, and a link to the original listing
+    credited to its platform.
+    """
+
+    app_url = html.escape(
+        app_job_url(job.id),
+        quote=True,
+    )
+
+    listing_url = html.escape(
+        job.application_url,
+        quote=True,
+    )
+
+    source_name = SOURCE_NAMES.get(job.source)
+    listing_label = (
+        f"Original listing on {html.escape(source_name)}"
+        if source_name
+        else "Original listing"
+    )
+
+    return f"""
+                    <a
+                        href="{app_url}"
+                        style="
+                            display: inline-block;
+                            margin-top: 16px;
+                            padding: 10px 16px;
+                            background-color: #111827;
+                            color: white;
+                            text-decoration: none;
+                            border-radius: 7px;
+                            font-size: 14px;
+                        "
+                    >
+                        View in JobForge
+                    </a>
+
+                    <a
+                        href="{listing_url}"
+                        style="
+                            display: inline-block;
+                            margin: 16px 0 0 14px;
+                            color: #4b5563;
+                            font-size: 13px;
+                        "
+                    >
+                        {listing_label}
+                    </a>
+    """
+
+
 class EmailDelivery(NotificationDelivery):
     """
     Sends notifications through Resend.
@@ -217,10 +301,7 @@ class EmailDelivery(NotificationDelivery):
             job.company
         )
 
-        application_url = html.escape(
-            job.application_url,
-            quote=True,
-        )
+        links_html = job_links_html(job)
 
         return f"""
         <!DOCTYPE html>
@@ -293,20 +374,7 @@ class EmailDelivery(NotificationDelivery):
                         at {company}
                     </p>
 
-                    <a
-                        href="{application_url}"
-                        style="
-                            display: inline-block;
-                            margin-top: 12px;
-                            padding: 12px 18px;
-                            background-color: #111827;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 8px;
-                        "
-                    >
-                        View Job
-                    </a>
+                    {links_html}
 
                     <p
                         style="
@@ -346,10 +414,7 @@ class EmailDelivery(NotificationDelivery):
 
             score = job_match.score
 
-            application_url = html.escape(
-                job.application_url,
-                quote=True,
-            )
+            links_html = job_links_html(job)
 
             match_reasons = html.escape(
                 job_match.match_reasons or ""
@@ -413,21 +478,7 @@ class EmailDelivery(NotificationDelivery):
 
                     {reasons_html}
 
-                    <a
-                        href="{application_url}"
-                        style="
-                            display: inline-block;
-                            margin-top: 16px;
-                            padding: 10px 16px;
-                            background-color: #111827;
-                            color: white;
-                            text-decoration: none;
-                            border-radius: 7px;
-                            font-size: 14px;
-                        "
-                    >
-                        View Job
-                    </a>
+                    {links_html}
                 </div>
                 """
             )

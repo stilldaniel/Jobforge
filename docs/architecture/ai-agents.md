@@ -137,6 +137,9 @@ asked.
   preferences are checked **at send time**.
 - Status: `pending`, `sent`, `failed` (after `NOTIFICATION_MAX_ATTEMPTS`),
   `skipped` (not emailed because of preferences; never retried).
+- Each job in an email links to its page in the app (`APP_BASE_URL`,
+  default `http://localhost:3000`) and to the original listing,
+  credited to its platform.
 - Digest: at `DIGEST_HOUR:DIGEST_MINUTE` in **each user's timezone**, at
   most once a day, tracked by `users.last_digest_at`. Profile edits
   re-score matches but **never** send notifications.
@@ -203,8 +206,24 @@ asked.
 
 - Pages are `"use client"` components that call `lib/api/*`. Add the
   matching type to `types/api.ts` whenever an API response changes.
+- The browser reaches the API only through the `/api/*` proxy in
+  `next.config.js`. Never point frontend code at `localhost:8000`
+  directly.
+- The user opens the app from their phone over Tailscale
+  (`tailscale serve` shares port 3000 as
+  `https://desktop-8o15rqo.tail895113.ts.net`; `APP_BASE_URL` points
+  there). Keep both servers bound to `127.0.0.1`: binding to `0.0.0.0`
+  would expose the unauthenticated API on any Wi-Fi network.
 - Show salaries with `formatSalary` and sources with `formatSource`; never
   hardcode `$` or a score threshold.
+- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`, the public portfolio demo
+  on Vercel): `lib/api/client.ts` sends every request to
+  `lib/demo/api.ts`, which serves `lib/demo/data.ts`. When you add or
+  change an API call the frontend uses, add or update its demo route
+  too, or that page breaks in the demo. Keep demo companies invented and
+  demo scores consistent with the real matching rules. Build the demo
+  with `NEXT_DIST_DIR=.next-demo` locally so it doesn't replace the
+  laptop's real build in `.next`.
 - Lint runs with `--max-warnings 0`. Escape apostrophes in JSX
   (`&apos;`).
 

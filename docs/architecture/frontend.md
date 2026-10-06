@@ -33,7 +33,13 @@ types/api.ts           Types mirroring the API's response models
 
 `lib/api/client.ts` wraps `fetch` with JSON handling and turns API errors
 into `Error`s carrying the API's `detail` message. The base URL comes from
-`NEXT_PUBLIC_API_URL` (default `http://localhost:8000`).
+`NEXT_PUBLIC_API_URL` (default `/api`).
+
+`next.config.js` forwards `/api/*` to the backend (`JOBFORGE_API_URL`,
+default `http://127.0.0.1:8000`), so the browser never calls the backend
+directly. It keeps trailing slashes (`skipTrailingSlashRedirect`) and has
+a separate rule for slash-ending paths, because FastAPI routes such as
+`/jobs/` would otherwise redirect to the backend's own address.
 
 ## Current user
 

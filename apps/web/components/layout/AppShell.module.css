@@ -247,3 +247,25 @@
     padding: 24px 18px;
   }
 }
+
+.demoBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px 14px;
+  padding: 9px 16px;
+  background: #f4ecfa;
+  border-bottom: 1px solid #e4d4f0;
+  color: #5b2785;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.demoBanner a {
+  color: #7b34a3;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

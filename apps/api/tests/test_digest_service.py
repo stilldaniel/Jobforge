@@ -1115,3 +1115,39 @@ def test_high_match_batch_email_lists_every_job(db, user, job):
     assert html_content.count("Frontend Developer") == 2
     assert "New high-quality job matches" in html_content
     assert "&lt;today&gt;" in html_content
+
+
+# ============================================================
+# EMAIL LINKS
+# ============================================================
+
+def test_emails_link_to_the_job_in_jobforge_and_the_listing(
+    db,
+    user,
+    job,
+    monkeypatch,
+):
+    from app.services.email_delivery import EmailDelivery
+
+    monkeypatch.setenv("APP_BASE_URL", "http://jobforge.test/")
+    job.source = "remotive"
+    db.commit()
+
+    notification = create_notification(db, user.id, job.id)
+
+    for html_content in (
+        EmailDelivery._build_html(notification),
+        EmailDelivery._build_digest_html([notification]),
+    ):
+        assert f'href="http://jobforge.test/jobs/{job.id}"' in html_content
+        assert "View in JobForge" in html_content
+        assert f'href="{job.application_url}"' in html_content
+        assert "Original listing on Remotive" in html_content
+
+
+def test_app_links_default_to_localhost(monkeypatch):
+    from app.services.email_delivery import app_job_url
+
+    monkeypatch.delenv("APP_BASE_URL", raising=False)
+
+    assert app_job_url(7) == "http://localhost:3000/jobs/7"
