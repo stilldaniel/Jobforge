@@ -1,5 +1,7 @@
 # JobForge
 
+**[Live demo](https://jobforgee.vercel.app)** with sample data.
+
 JobForge finds jobs for you. It scans job boards every 15 minutes, scores
 each new job against your career profile, and emails you about the ones
 worth your time:
@@ -189,6 +191,8 @@ Get-ScheduledTask -TaskName "JobForge*" | Unregister-ScheduledTask -Confirm:$fal
 ```
 
 ## Portfolio demo
+
+**Live demo: https://jobforgee.vercel.app**
 
 Building the web app with `NEXT_PUBLIC_DEMO_MODE=true` produces a demo
 that runs entirely in the browser on sample data
